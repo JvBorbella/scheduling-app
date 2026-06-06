@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/button/switch_button.dart';
@@ -15,6 +17,8 @@ class Login extends StatefulWidget {
 
 class _LoginState extends State<Login> {
   bool rememberLogin = true;
+  final TextEditingController _imageController = TextEditingController();
+  File? _selectedImage;
 
   @override
   Widget build(BuildContext context) {
@@ -41,10 +45,11 @@ class _LoginState extends State<Login> {
                         TextFieldMod1(labelText: 'CNPJ da empresa'),
                         SizedBox(height: 10),
                         TextFieldMod1(
-                          labelText: 'Selecione uam imagem',
+                          controller: _imageController,
+                          labelText: 'Selecione uma imagem',
                           suffixIcon: IconButton(
-                            onPressed: null,
-                            icon: Icon(Symbols.more_horiz),
+                            onPressed: _pickImage,
+                            icon: const Icon(Symbols.more_horiz),
                           ),
                           readOnly: true,
                         ),
@@ -65,7 +70,14 @@ class _LoginState extends State<Login> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Icon(Symbols.hide_image, size: 100),
+                _selectedImage != null
+                    ? Image.file(
+                        _selectedImage!,
+                        width: 200,
+                        height: 200,
+                        fit: BoxFit.cover,
+                      )
+                    : Icon(Symbols.hide_image, size: 100),
                 TextFieldMod1(labelText: 'Usuário'),
                 TextFieldMod1(labelText: 'Senha', obscureText: true),
                 Row(
@@ -95,10 +107,13 @@ class _LoginState extends State<Login> {
                     ),
                   ],
                 ),
-                ButtonMod1(text: 'Entrar', onPressed: () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => App()),
-                ),),
+                ButtonMod1(
+                  text: 'Entrar',
+                  onPressed: () => Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => App()),
+                  ),
+                ),
                 Center(child: Text('By Oblynx')),
                 Center(
                   child: Text(
@@ -112,5 +127,22 @@ class _LoginState extends State<Login> {
         ),
       ),
     );
+  }
+
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    try {
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+          _imageController.text = image.name;
+        });
+        print('Imagem selecionada: ${image.path}');
+      }
+    } catch (e) {
+      print('Erro ao selecionar imagem: $e');
+    }
   }
 }

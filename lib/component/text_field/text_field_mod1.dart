@@ -6,6 +6,7 @@ class TextFieldMod1 extends StatefulWidget {
   final dynamic suffix, suffixIcon;
   final double? width;
   final int? maxLines;
+  final TextEditingController? controller;
   const TextFieldMod1({
     super.key,
     this.labelText,
@@ -15,6 +16,7 @@ class TextFieldMod1 extends StatefulWidget {
     this.suffixIcon,
     this.width,
     this.maxLines,
+    this.controller,
   });
 
   @override
@@ -29,25 +31,26 @@ class _TextFieldMod1State extends State<TextFieldMod1> {
       child: SizedBox(
         width: widget.width ?? double.infinity,
         child: TextFormField(
-        obscureText: widget.obscureText,
-        readOnly: widget.readOnly,
-        maxLines: widget.maxLines ?? 1,
-        decoration: InputDecoration(
-          labelText: widget.labelText ?? '',
-          labelStyle: TextStyle(color: Colors.grey, fontSize: 10),
-          fillColor: Colors.grey[350],
-          filled: true,
-          suffix: widget.suffix,
-          suffixIcon: widget.suffixIcon != null
-              ? IconButton(onPressed: null, icon: widget.suffixIcon)
-              : null,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12.0),
-            borderSide: BorderSide(color: Colors.black, width: 3.0),
+          controller: widget.controller,
+          obscureText: widget.obscureText,
+          readOnly: widget.readOnly,
+          maxLines: widget.maxLines ?? 1,
+          decoration: InputDecoration(
+            labelText: widget.labelText ?? '',
+            labelStyle: TextStyle(color: Colors.grey, fontSize: 10),
+            fillColor: Colors.grey[350],
+            filled: true,
+            suffix: widget.suffix,
+            suffixIcon: widget.suffixIcon != null
+                ? IconButton(onPressed: null, icon: widget.suffixIcon)
+                : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12.0),
+              borderSide: BorderSide(color: Colors.black, width: 3.0),
+            ),
           ),
         ),
       ),
-      )
     );
   }
 }
