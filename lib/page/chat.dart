@@ -68,7 +68,9 @@ class _ChatState extends State<Chat> {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
-      endDrawer: Drawer(),
+      endDrawer: Drawer(
+        child: DrawerTab(),
+      ),
       body: Column(
           children: [
             // Área das mensagens

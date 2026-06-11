@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_expanded_tile/flutter_expanded_tile.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod2.dart';
 import 'package:scheduling/component/text_field/text_field_mod1.dart';
-import 'package:scheduling/page/chat.dart';
 import 'package:scheduling/page/client.dart';
 import 'package:scheduling/page/login.dart';
 import 'package:scheduling/page/messenge.dart';
@@ -65,7 +65,7 @@ class _AppState extends State<App> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
-      endDrawer: Drawer(),
+      endDrawer: Drawer(child: DrawerTab()),
       body:
           widget.child ?? IndexedStack(index: _selectedIndex, children: _pages),
       bottomNavigationBar: Container(
@@ -252,7 +252,251 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Arial',
       ),
-      home: const Login()
+      home: const Login(),
+    );
+  }
+}
+
+class DrawerTab extends StatefulWidget {
+  const DrawerTab({super.key});
+
+  @override
+  State<DrawerTab> createState() => _DrawerTabState();
+}
+
+class _DrawerTabState extends State<DrawerTab> {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsetsGeometry.all(16),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: Colors.black,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  maxRadius: 25,
+                  backgroundColor: Colors.white,
+                  child: Icon(Icons.person, size: 50, color: Colors.black),
+                ),
+                SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text.rich(
+                      TextSpan(
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ), // Estilo padrão/base
+                        children: [
+                          TextSpan(
+                            text: 'Usuário: ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ), // Aplica negrito apenas aqui
+                          ),
+                          TextSpan(
+                            text:
+                                'Anônimo', // Herda o estilo padrão (cor branca, sem negrito)
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text.rich(
+                      TextSpan(
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ), // Estilo padrão/base
+                        children: [
+                          TextSpan(
+                            text: 'Empresa: ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ), // Aplica negrito apenas aqui
+                          ),
+                          TextSpan(
+                            text:
+                                'João Couiffeir', // Herda o estilo padrão (cor branca, sem negrito)
+                          ),
+                        ],
+                      ),
+                    ),
+                    Text.rich(
+                      TextSpan(
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ), // Estilo padrão/base
+                        children: [
+                          TextSpan(
+                            text: 'Perfil: ',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ), // Aplica negrito apenas aqui
+                          ),
+                          TextSpan(
+                            text:
+                                'Sem perfil', // Herda o estilo padrão (cor branca, sem negrito)
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 20),
+          ListTile(
+            trailing: Icon(Icons.arrow_forward_ios_rounded, size: 15, color: Colors.black,),
+            title: Text(
+              'Área do admin',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: Colors.grey, width: 1),
+            ),
+          ),
+          SizedBox(height: 10),
+          ExpandedTile(
+            theme: ExpandedTileThemeData(
+              headerColor: Colors.transparent, // Cabeçalho branco
+              contentBackgroundColor:
+                  Colors.grey[300], // Fundo do conteúdo cinza claro
+              // Remove o preenchimento padrão para os Dividers encostarem nas bordas laterais
+              contentPadding: EdgeInsets.zero,
+              headerPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+
+              // 1. Quando FECHADO: Totalmente arredondado
+              headerBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.grey, width: 1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+
+              // 2. Quando ABERTO: Arredondado apenas em cima, reto embaixo
+              fullExpandedBorder: const OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey, width: 1),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  topRight: Radius.circular(10),
+                  bottomLeft: Radius.zero,
+                  bottomRight: Radius.zero,
+                ),
+              ),
+
+              // Remove a borda interna nativa para não duplicar com a de cima
+              contentBorder: const OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.transparent),
+              ),
+            ),
+            controller: ExpandedTileController(),
+            title: const Text(
+              "Relatórios",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+                fontSize: 16,
+              ),
+            ),
+            content: Column(mainAxisSize: MainAxisSize.min, children: []),
+          ),
+          SizedBox(height: 10),
+          ExpandedTile(
+            theme: ExpandedTileThemeData(
+              headerColor: Colors.transparent, // Cabeçalho branco
+              contentBackgroundColor:
+                  Colors.grey[200], // Fundo do conteúdo cinza claro
+              // Remove o preenchimento padrão para os Dividers encostarem nas bordas laterais
+              contentPadding: EdgeInsets.zero,
+              headerPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+
+              // 1. Quando FECHADO: Totalmente arredondado
+              headerBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: Colors.grey, width: 1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+
+              // 2. Quando ABERTO: Arredondado apenas em cima, reto embaixo
+              fullExpandedBorder: const OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey, width: 1),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(10),
+                  topRight: Radius.circular(10),
+                  bottomLeft: Radius.zero,
+                  bottomRight: Radius.zero,
+                ),
+              ),
+
+              // Remove a borda interna nativa para não duplicar com a de cima
+              contentBorder: const OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.transparent),
+              ),
+            ),
+            controller: ExpandedTileController(),
+            title: const Text(
+              "Serviços",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+                fontSize: 16,
+              ),
+            ),
+
+            // Conteúdo com múltiplos Containers/Itens separados por linhas
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Linha divisória entre o título e o primeiro item
+                const Divider(color: Colors.grey, height: 1, thickness: 1),
+
+                // Primeiro Item (Cadastro)
+                ListTile(
+                  title: const Text(
+                    "Cadastro",
+                    style: TextStyle(color: Colors.black, fontSize: 15),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  onTap: () {},
+                ),
+
+                // Linha divisória entre os itens internos
+                const Divider(color: Colors.grey, height: 1, thickness: 1),
+
+                // Segundo Item (Consulta de preço)
+                ListTile(
+                  title: const Text(
+                    "Consulta de preço",
+                    style: TextStyle(color: Colors.black, fontSize: 15),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  onTap: () {},
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
