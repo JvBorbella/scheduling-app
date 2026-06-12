@@ -24,7 +24,11 @@ class _ClientListState extends State<ClientList> {
             child: ListView.builder(
               itemCount: 3,
               itemBuilder: (context, index) {
-                return CardList(
+                return Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: 10,
+                      ), // Margem externa mantida aqui
+                      child: CardList(
                   title: 'Matheus Stevam',
                   text:
                       'Tel.: (21) 98456-2054\nE-mail: estevam28@gmail.com\nCPF: 566.281.684-98',
@@ -34,7 +38,7 @@ class _ClientListState extends State<ClientList> {
                     icon: Icon(Icons.edit),
                     color: Colors.amber,
                   ),
-                );
+                ));
               },
             ),
           ),

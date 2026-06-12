@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:scheduling/component/card/card_list.dart';
 import 'package:scheduling/component/text_field/search_bar.dart';
-import 'package:scheduling/main.dart';
 
 class Shedulings extends StatefulWidget {
   const Shedulings({super.key});
@@ -11,7 +10,8 @@ class Shedulings extends StatefulWidget {
 }
 
 class _ShedulingsState extends State<Shedulings> {
-  bool notifyActivated = true;
+  List<bool> notifyActivated = [];
+  //bool notifyActivated = true;
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -24,20 +24,28 @@ class _ShedulingsState extends State<Shedulings> {
             child: ListView.builder(
               itemCount: 3,
               itemBuilder: (context, index) {
-                return CardList(
-                  title: 'Hoje às 14:00',
-                  text: 'Serviço(s): Corte de cabelo | Barba\nValor: R\$ 30,00\nCliente: Matheus Stevam',
-                  textInfo: 'Nº 001',
-                  iconButton: IconButton(
-                  onPressed: () {
-                    setState(() {
-                      notifyActivated = !notifyActivated;
-                    });
-                  },
-                  icon: notifyActivated
-                      ? Icon(Icons.notifications_active, color: Colors.red)
-                      : Icon(Icons.notifications_off, color: Colors.grey),
-                ));
+                notifyActivated.add(true);
+                return Padding(
+                  padding: const EdgeInsets.only(
+                    bottom: 10,
+                  ), // Margem externa mantida aqui
+                  child: CardList(
+                    title: 'Hoje às 14:00',
+                    text:
+                        'Serviço(s): Corte de cabelo | Barba\nValor: R\$ 30,00\nCliente: Matheus Stevam',
+                    textInfo: 'Nº 001',
+                    iconButton: IconButton(
+                      onPressed: () {
+                        setState(() {
+                          notifyActivated[index] = !notifyActivated[index];
+                        });
+                      },
+                      icon: notifyActivated[index]
+                          ? Icon(Icons.notifications_active, color: Colors.red)
+                          : Icon(Icons.notifications_off, color: Colors.grey),
+                    ),
+                  ),
+                );
               },
             ),
           ),

@@ -10,7 +10,9 @@ class NotifyList extends StatefulWidget {
 }
 
 class _NotifyListState extends State<NotifyList> {
-  bool notifyActivated = true;
+  bool visibilityNotify1 = true;
+  bool visibilityNotify2 = true;
+  //bool notifyActivated = true;
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -19,85 +21,136 @@ class _NotifyListState extends State<NotifyList> {
         children: [
           SearchBarDefault(hintText: 'agendamento'),
           SizedBox(height: 20),
-          Column(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(15),
-                child: Dismissible(
-                  key: ValueKey(0),
-                  onDismissed: (_) {},
-                  background: Container(
-                    height: 60,
-                    alignment: Alignment.centerLeft,
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      color: Colors.green,
-                    ),
-                    child: Icon(
-                      Icons.mark_email_read_rounded,
-                      color: Colors.white,
-                    ),
-                  ),
-                  // secondaryBackground: Container(
-                  //   height: 60,
-                  //   alignment: Alignment.centerRight,
-                  //   padding: EdgeInsets.symmetric(horizontal: 20),
-                  //   color: Colors.red,
-                  //   child: Icon(Icons.delete, color: Colors.white),
-                  // ),
-                  behavior: HitTestBehavior.deferToChild,
-                  child: Column(
-                    children: [
-                      CardList(
-                        title: 'Hoje às 14:00',
-                        text:
-                            'Serviço(s): Corte de cabelo | Barba\nValor: R\$ 30,00\nCliente: Matheus Stevam',
-                        textInfo: 'Nº 001',
-                        iconButton: Row(
-                          children: [
-                            IconButton(
-                              onPressed: null,
-                              icon: Icon(
-                                Icons.mark_email_read_rounded,
-                                color: Colors.black,
+          Expanded(
+            child: ListView.builder(
+              itemCount: 1,
+              itemBuilder: (context, index) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: 10,
+                      ), // Margem externa mantida aqui
+                      child: Visibility(
+                        visible: visibilityNotify1,
+                        child: ClipRRect(
+                        borderRadius: BorderRadius.circular(15), // Raio X
+                        child: Dismissible(
+                          key: const ValueKey(0),
+                          direction: DismissDirection.startToEnd,
+                          onDismissed: (right) {},
+                          background: Container(
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            color: Colors.green, // Mesma cor do truque abaixo
+                            child: const Icon(
+                              Icons.mark_email_read_rounded,
+                              color: Colors.white,
+                            ),
+                          ),
+                          behavior: HitTestBehavior.deferToChild,
+                          child: Container(
+                            color: Colors
+                                .green, // Cor idêntica à do background do Dismissible
+                            child: CardList(
+                              title: 'Hoje às 14:00',
+                              text:
+                                  'Serviço(s): Corte de cabelo | Barba\nValor: R\$ 30,00\nCliente: Matheus Stevam',
+                              textInfo: 'Nº 001',
+                              iconButton: Row(
+                                mainAxisSize: MainAxisSize
+                                    .min, // Evita que a Row quebre o limite horizontal
+                                children: [
+                                  IconButton(
+                                    onPressed: () => setState(() {
+                                      visibilityNotify1 = !visibilityNotify1;
+                                    }),
+                                    icon: const Icon(
+                                      Icons.mark_email_read_rounded,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                      CardList(
-                        title: 'Matheus Stevam',
-                        text: 'Olá, bom dia!',
-                        textInfo: '11:57',
-                        iconButton: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 10,
-                              backgroundColor: Colors.black,
-                              child: Text(
-                                '1',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                ),
+                      )
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: 10,
+                      ), // Margem externa mantida aqui
+                      child: Visibility(
+                        visible: visibilityNotify2,
+                        child:  ClipRRect(
+                        borderRadius: BorderRadius.circular(15),
+                        child: Dismissible(
+                          key: ValueKey(0),
+                          onDismissed: (_) {},
+                          background: Container(
+                            height: 60,
+                            alignment: Alignment.centerLeft,
+                            padding: EdgeInsets.symmetric(horizontal: 20),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(15),
+                              color: Colors.green,
+                            ),
+                            child: Icon(
+                              Icons.mark_email_read_rounded,
+                              color: Colors.white,
+                            ),
+                          ),
+                          // secondaryBackground: Container(
+                          //   height: 60,
+                          //   alignment: Alignment.centerRight,
+                          //   padding: EdgeInsets.symmetric(horizontal: 20),
+                          //   color: Colors.red,
+                          //   child: Icon(Icons.delete, color: Colors.white),
+                          // ),
+                          behavior: HitTestBehavior.deferToChild,
+                          child: Container(
+                            color: Colors
+                                .green, // Cor idêntica à do background do Dismissible
+                            child: CardList(
+                              title: 'Matheus Stevam',
+                              text: 'Olá, bom dia!',
+                              textInfo: '11:57',
+                              iconButton: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 10,
+                                    backgroundColor: Colors.black,
+                                    child: Text(
+                                      '1',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () => setState(() {
+                                      visibilityNotify2 = !visibilityNotify2;
+                                    }),
+                                    icon: Icon(
+                                      Icons.mark_email_read_rounded,
+                                      color: Colors.green,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            IconButton(
-                              onPressed: null,
-                              icon: Icon(
-                                Icons.mark_email_read_rounded,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+                      )
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ],
       ),

@@ -30,7 +30,7 @@ class _LoginState extends State<Login> {
             icon: const Icon(
               Icons.settings,
               size: 30,
-              color: Color(0xFF1E88E5),
+              color: Colors.black,
             ),
             onPressed: () {
               showDialog(
@@ -102,12 +102,13 @@ class _LoginState extends State<Login> {
                       onPressed: null,
                       child: Text(
                         'Esqueci minha senha',
-                        style: TextStyle(color: Colors.blue[300], fontSize: 12),
+                        style: TextStyle(color: Colors.black, decoration: TextDecoration.underline, fontSize: 12),
                       ),
                     ),
                   ],
                 ),
                 ButtonMod1(
+                  color: Colors.black,
                   text: 'Entrar',
                   onPressed: () => Navigator.pushReplacement(
                     context,

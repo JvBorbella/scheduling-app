@@ -12,12 +12,13 @@ class CardList extends StatefulWidget {
 class _CardListState extends State<CardList> {
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return  GestureDetector(
       onTap: widget.onTap,
       child: Container(
-      margin: EdgeInsets.only(bottom: 10),
+      //margin: EdgeInsets.only(bottom: 10),
       padding: EdgeInsets.all(10),
       decoration: BoxDecoration(
+        color: Colors.white,
         border: Border.all(color: Color.fromRGBO(189, 189, 189, 1), width: 2),
         borderRadius: BorderRadius.circular(15),
       ),
@@ -44,7 +45,7 @@ class _CardListState extends State<CardList> {
         ],
       ),
     ),
-    );
+    ) ;
   }
 
   Widget textCard(String text) {

@@ -24,7 +24,7 @@ class _SwitchButtonState extends State<SwitchButton> {
       scale: 0.7, // Fator de escala (1.0 é o tamanho padrão)
       child: Switch(
         value: isChecked ?? false,
-        activeTrackColor: Colors.blue[300],
+        activeTrackColor: Colors.black,
         inactiveThumbColor: Colors.grey,
         onChanged: widget.onChanged
       ),

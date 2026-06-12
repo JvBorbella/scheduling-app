@@ -21,9 +21,9 @@ class _ModalMod1State extends State<ModalMod1> {
       title: widget.title != null ? Text(widget.title ?? '', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold), textAlign: TextAlign.center) : null,
       content: widget.content,
       actions: [
-        ButtonMod1(text: widget.textButton ?? 'Salvar', color: Colors.blue[300], onPressed: widget.onPressed),
+        ButtonMod1(text: widget.textButton ?? 'Salvar', color: Colors.black, onPressed: widget.onPressed),
               SizedBox(height: 10),
-              ButtonMod1(text: 'Fechar', color: Colors.red[400], onPressed: () => Navigator.of(context).pop()),
+              ButtonMod1(text: 'Fechar', color: Colors.red[900], onPressed: () => Navigator.of(context).pop()),
       ],
     );
   }

@@ -23,15 +23,26 @@ class _MessengeListState extends State<MessengeList> {
             child: ListView.builder(
               itemCount: 3,
               itemBuilder: (context, index) {
-                return CardList(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => Chat())),
-                  title: 'Matheus Stevam',
-                  text: 'Olá, bom dia!',
-                  textInfo: '11:57',
-                  iconButton: CircleAvatar(
-                    radius: 10,
-                    backgroundColor: Colors.black,
-                    child: Text('1', style: TextStyle(color: Colors.white, fontSize: 10)),
+                return Padding(
+                  padding: const EdgeInsets.only(
+                    bottom: 10,
+                  ), // Margem externa mantida aqui
+                  child: CardList(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => Chat()),
+                    ),
+                    title: 'Matheus Stevam',
+                    text: 'Olá, bom dia!',
+                    textInfo: '11:57',
+                    iconButton: CircleAvatar(
+                      radius: 10,
+                      backgroundColor: Colors.black,
+                      child: Text(
+                        '1',
+                        style: TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ),
                   ),
                 );
               },

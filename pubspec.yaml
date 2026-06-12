@@ -37,6 +37,7 @@ dependencies:
   material_symbols_icons: ^4.2928.1
   image_picker: ^1.2.2
   flutter_expanded_tile: ^0.4.0
+  searchfield: ^2.0.0
 
 dev_dependencies:
   flutter_test:
