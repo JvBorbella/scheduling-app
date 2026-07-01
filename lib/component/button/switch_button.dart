@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:scheduling/style/color.dart';
 
 class SwitchButton extends StatefulWidget {
   final bool isChecked;
-  final dynamic onChanged;
-  const SwitchButton({super.key, this.isChecked = false, this.onChanged});
+  final Function(bool?)? onChanged;
+  const SwitchButton({super.key, required this.isChecked, this.onChanged});
 
   @override
   State<SwitchButton> createState() => _SwitchButtonState();
@@ -23,10 +24,10 @@ class _SwitchButtonState extends State<SwitchButton> {
     return Transform.scale(
       scale: 0.7, // Fator de escala (1.0 é o tamanho padrão)
       child: Switch(
-        value: isChecked ?? false,
-        activeTrackColor: Colors.black,
-        inactiveThumbColor: Colors.grey,
-        onChanged: widget.onChanged
+        value: widget.isChecked,
+        activeThumbColor: ColorsApp.primaryColor,
+        activeTrackColor: ColorsApp.secondaryColor,
+        onChanged: widget.onChanged,
       ),
     );
   }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:scheduling/style/color.dart';
 
 class SearchBarDefault extends StatefulWidget {
   final String? hintText;
@@ -15,11 +16,11 @@ class _SearchBarDefaultState extends State<SearchBarDefault> {
       shape: WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
-      leading: const Icon(Icons.search),
+      leading: Icon(Icons.search, color: ColorsApp.primaryColor),
       trailing: [
         IconButton(
           onPressed: null,
-          icon: const Icon(Icons.filter_list_alt, color: Colors.black),
+          icon: Icon(Icons.filter_list_alt, color: ColorsApp.primaryColor),
         ),
       ],
       backgroundColor: WidgetStatePropertyAll(

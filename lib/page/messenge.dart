@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:scheduling/component/card/card_list.dart';
 import 'package:scheduling/component/text_field/search_bar.dart';
+import 'package:scheduling/main.dart';
 import 'package:scheduling/page/chat.dart';
+import 'package:scheduling/style/color.dart';
 
 class MessengeList extends StatefulWidget {
   const MessengeList({super.key});
@@ -37,10 +39,13 @@ class _MessengeListState extends State<MessengeList> {
                     textInfo: '11:57',
                     iconButton: CircleAvatar(
                       radius: 10,
-                      backgroundColor: Colors.black,
+                      backgroundColor: ColorsApp.secondaryColor,
                       child: Text(
                         '1',
-                        style: TextStyle(color: Colors.white, fontSize: 10),
+                        style: TextStyle(
+                          color: ColorsApp.primaryColor,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                   ),
