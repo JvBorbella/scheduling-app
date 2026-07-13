@@ -16,11 +16,11 @@ class _SearchBarDefaultState extends State<SearchBarDefault> {
       shape: WidgetStatePropertyAll(
         RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
-      leading: Icon(Icons.search, color: ColorsApp.primaryColor),
+      leading: Icon(Icons.search, color: ColorsApp.secondaryColor),
       trailing: [
         IconButton(
           onPressed: null,
-          icon: Icon(Icons.filter_list_alt, color: ColorsApp.primaryColor),
+          icon: Icon(Icons.filter_list_alt, color: ColorsApp.secondaryColor),
         ),
       ],
       backgroundColor: WidgetStatePropertyAll(

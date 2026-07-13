@@ -31,6 +31,7 @@ class _ButtonMod1State extends State<ButtonMod1> {
           backgroundColor: widget.color ?? Colors.blue[300],
           padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
           shape: RoundedRectangleBorder(
+            side: BorderSide(color: ColorsApp.secondaryColor),
             borderRadius: BorderRadius.circular(12.0),
           ),
         ),

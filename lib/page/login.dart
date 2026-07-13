@@ -123,11 +123,15 @@ class _LoginState extends State<Login> {
                   urlImage != ''
                       ? Image.network(
                           urlImage,
-                          width: 100,
+                          //width: 100,
                           height: 100,
                           fit: BoxFit.cover,
                         )
-                      : Icon(Symbols.hide_image, size: 100),
+                      : Icon(
+                          Symbols.hide_image,
+                          size: 100,
+                          color: ColorsApp.secondaryColor,
+                        ),
                   TextFieldMod1(
                     labelText: 'Usuário',
                     controller: _userController,
@@ -250,7 +254,12 @@ class _LoginState extends State<Login> {
                               }
                             }),
                   ),
-                  Center(child: Text('By Oblynx')),
+                  Center(
+                    child: Text(
+                      'By Oblynx',
+                      style: TextStyle(color: ColorsApp.secondaryColor),
+                    ),
+                  ),
                   Center(
                     child: Text(
                       'Versão: 1.0.0',

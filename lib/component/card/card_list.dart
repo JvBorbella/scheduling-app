@@ -47,6 +47,7 @@ class _CardListState extends State<CardList> {
             ),
             Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.max,
               children: [widget.iconButton, textCard(widget.textInfo ?? '')],
             ),

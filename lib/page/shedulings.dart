@@ -3,9 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:scheduling/component/card/card_list.dart';
-import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/text_field/search_bar.dart';
-import 'package:scheduling/main.dart';
+import 'package:scheduling/modals_crud/crud_scheduling.dart';
 import 'package:scheduling/requests/endpoints.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
@@ -37,7 +36,7 @@ class _ShedulingsState extends State<Shedulings> {
         },
         body: jsonEncode({
           "q":
-              "SELECT o.id, o.tenant_id, o.company_id, o.code, o.created_at AS scheduled_date, o.total_amount, p.name AS client, p.cpf, p.cnpj FROM orders o LEFT JOIN persons p ON p.id = o.customer_id WHERE o.tenant_id = '4368297b-944d-4bc5-827c-333cfdf012f9'",
+              "SELECT o.id, o.tenant_id, o.company_id, o.code, o.created_at AS scheduled_date, o.total_amount, p.name AS client, p.cpf, p.cnpj FROM orders o LEFT JOIN persons p ON p.id = o.customer_id WHERE o.tenant_id = '${prefs.getString('tenant_id')}'",
         }),
       );
       if (response.statusCode == 200) {
@@ -188,7 +187,7 @@ class _ShedulingsState extends State<Shedulings> {
                           ? Icon(Icons.notifications_active, color: Colors.red)
                           : Icon(Icons.notifications_off, color: Colors.grey),
                     ),
-                    onLongPress: () {
+                    onLongPress: () async {
                       final serviceName = orderItems
                           .where(
                             (item) =>
@@ -203,7 +202,16 @@ class _ShedulingsState extends State<Shedulings> {
                       data['scheduled_date'] =
                           scheduleds[index]['scheduled_date']; // manda formatado
 
-                      App.showAddModal(context, initialData: data);
+                      final modal = await CrudScheduling.modalMod1(
+                        context,
+                        data['service_name'],
+                        data['client'],
+                        scheduleds[index]['scheduled_date'],
+                        data['id'],
+                        data['total_amount'],
+                      );
+
+                      showDialog(context: context, builder: (context) => modal);
                     },
                   ),
                 );

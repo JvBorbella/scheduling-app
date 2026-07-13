@@ -4,9 +4,13 @@ import 'package:scheduling/component/text_field/search_bar.dart';
 import 'package:scheduling/main.dart';
 import 'package:scheduling/page/chat.dart';
 import 'package:scheduling/style/color.dart';
+import 'dart:typed_data';
 
 class MessengeList extends StatefulWidget {
-  const MessengeList({super.key});
+  final String? initialText;
+  final Uint8List? initialImage;
+
+  const MessengeList({super.key, this.initialText, this.initialImage});
 
   @override
   State<MessengeList> createState() => _MessengeListState();
@@ -32,7 +36,12 @@ class _MessengeListState extends State<MessengeList> {
                   child: CardList(
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => Chat()),
+                      MaterialPageRoute(
+                        builder: (context) => Chat(
+                          initialText: widget.initialText,
+                          initialImage: widget.initialImage,
+                        ),
+                      ),
                     ),
                     title: 'Matheus Stevam',
                     text: 'Olá, bom dia!',

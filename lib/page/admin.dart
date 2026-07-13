@@ -10,10 +10,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
+import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod2.dart';
 import 'package:scheduling/component/text_field/text_field_mod1.dart';
 import 'package:scheduling/main.dart';
 import 'package:scheduling/mask/cnpj.dart';
+import 'package:scheduling/page/users.dart';
 import 'package:scheduling/requests/company.dart';
 import 'package:scheduling/requests/endpoints.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -44,10 +46,15 @@ class _AdminPageState extends State<AdminPage> {
   late CircleColorPickerController _primaryController;
   late CircleColorPickerController _secondaryController;
 
+  final TextEditingController _quickMessageTitleController =
+      TextEditingController();
+  final TextEditingController _quickMessageController = TextEditingController();
+
   String _primaryColor = '',
       _secondaryColor = '',
       _nomeUsuario = '',
-      _usuarioId = '';
+      _usuarioId = '',
+      _companyName = '';
 
   @override
   void dispose() {
@@ -98,10 +105,12 @@ class _AdminPageState extends State<AdminPage> {
     final prefs = await SharedPreferences.getInstance();
     final nomeUsuario = prefs.getString('nome_usuario');
     final usuarioId = prefs.getString('usuario_id');
-    if (nomeUsuario != null && usuarioId != null) {
+    final companyName = prefs.getString('company_name');
+    if (nomeUsuario != null && usuarioId != null && companyName != null) {
       setState(() {
         _nomeUsuario = nomeUsuario;
         _usuarioId = usuarioId;
+        _companyName = companyName;
       });
     }
   }
@@ -144,7 +153,9 @@ class _AdminPageState extends State<AdminPage> {
   Widget build(BuildContext context) {
     return SelectionArea(
       child: Scaffold(
+        backgroundColor: ColorsApp.primaryColor,
         appBar: AppBar(
+          backgroundColor: ColorsApp.primaryColor,
           leading: IconButton(
             onPressed: () => Navigator.pop(context),
             icon: Icon(
@@ -154,7 +165,11 @@ class _AdminPageState extends State<AdminPage> {
           ),
           title: Text(
             'Administração do sistema',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: ColorsApp.secondaryColor,
+            ),
           ),
           actions: [
             Builder(
@@ -166,7 +181,12 @@ class _AdminPageState extends State<AdminPage> {
           ],
         ),
         endDrawer: Drawer(
-          child: SafeArea(child: DrawerTab(nomeUsuario: _nomeUsuario)),
+          child: SafeArea(
+            child: DrawerTab(
+              nomeUsuario: _nomeUsuario,
+              companyName: _companyName,
+            ),
+          ),
         ),
         body: SafeArea(
           child: Column(
@@ -494,6 +514,11 @@ class _AdminPageState extends State<AdminPage> {
                                           ),
                                           Text(
                                             " ${_secondaryColor.toString()}",
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: ColorsApp.secondaryColor,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -513,9 +538,11 @@ class _AdminPageState extends State<AdminPage> {
                                       color: ColorsApp.secondaryColor,
                                     ),
                                     label: 'Usuários',
-                                    onTap: () {
-                                      // Action for users
-                                    },
+                                    onTap: () => Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => UserList(),
+                                      ),
+                                    ),
                                   ),
                                 ),
                                 Expanded(
@@ -612,7 +639,7 @@ class _AdminPageState extends State<AdminPage> {
                                       'Content-Type': 'application/json',
                                       'Authorization': 'Bearer $token',
                                       'X-TENANT-ID':
-                                          "${prefs.getString("empresa_id")}",
+                                          "${prefs.getString("tenant_id")}",
                                     },
                                     body: json.encode({
                                       "name": _nameController.text,
@@ -673,15 +700,62 @@ class _AdminPageState extends State<AdminPage> {
                         ),
                       ),
                       // Respostas rápidas
-                      const AdminTile(
+                      AdminTile(
                         title: 'Respostas rápidas',
                         initialExpanded: false,
                         content: Column(
+                          spacing: 10,
                           children: [
-                            SizedBox(height: 8),
-                            Text(
-                              'Configuração de respostas rápidas',
-                              style: TextStyle(color: Colors.grey),
+                            TextFieldMod1(
+                              controller: _quickMessageTitleController,
+                              labelText: 'Título',
+                            ),
+                            TextFieldMod1(
+                              controller: _quickMessageController,
+                              labelText: 'Mensagem',
+                              maxLines: 5,
+                            ),
+                            ButtonMod1(
+                              onPressed: () async {
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                final baseUrl = dotenv.env['BASE_URL'];
+                                final response = await http.post(
+                                  Uri.parse('$baseUrl${Endpoints.insert}'),
+                                  headers: {
+                                    'Authorization':
+                                        'Bearer ${prefs.getString('access_token')}',
+                                    'Content-Type': 'application/json',
+                                    'X-TENANT-ID':
+                                        "${prefs.getString("tenant_id")}",
+                                  },
+                                  body: jsonEncode({
+                                    'tabela': "quick_responses",
+                                    "values": {
+                                      "title":
+                                          _quickMessageTitleController.text,
+                                      "content": _quickMessageController.text,
+                                    },
+                                  }),
+                                );
+                                if (response.statusCode == 201) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("Resposta rápida salva!"),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(response.body),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              },
+                              text: 'Salvar',
+                              color: ColorsApp.secondaryColor,
                             ),
                           ],
                         ),

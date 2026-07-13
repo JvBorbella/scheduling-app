@@ -1,18 +1,34 @@
+import 'dart:convert';
+import 'dart:developer';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/main.dart';
+import 'package:scheduling/requests/endpoints.dart';
 import 'package:scheduling/style/color.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:typed_data';
 
 class ChatMessage {
   final String text;
   final String time;
   final bool isMe;
+  final Uint8List? imageBytes;
 
-  ChatMessage({required this.text, required this.time, required this.isMe});
+  ChatMessage({
+    required this.text,
+    required this.time,
+    required this.isMe,
+    this.imageBytes,
+  });
 }
 
 class Chat extends StatefulWidget {
-  const Chat({super.key});
+  final String? initialText;
+  final Uint8List? initialImage;
+
+  const Chat({super.key, this.initialText, this.initialImage});
 
   @override
   State<Chat> createState() => _ChatState();
@@ -21,6 +37,9 @@ class Chat extends StatefulWidget {
 class _ChatState extends State<Chat> {
   final TextEditingController _messageController = TextEditingController();
   String _nomeUsuario = '';
+  String _companyName = '';
+
+  List<dynamic> quickMessages = [];
 
   final List<ChatMessage> _messages = [
     ChatMessage(text: "Oi! Tudo bem?", time: "14:00", isMe: false),
@@ -60,9 +79,11 @@ class _ChatState extends State<Chat> {
   Future<void> getNomeUsuario() async {
     final prefs = await SharedPreferences.getInstance();
     final nomeUsuario = prefs.getString('nome_usuario');
-    if (nomeUsuario != null) {
+    final companyName = prefs.getString('company_name');
+    if (nomeUsuario != null && companyName != null) {
       setState(() {
         _nomeUsuario = nomeUsuario;
+        _companyName = companyName;
       });
     }
   }
@@ -71,6 +92,18 @@ class _ChatState extends State<Chat> {
   void initState() {
     super.initState();
     getNomeUsuario();
+    getResponses();
+    if (widget.initialText != null || widget.initialImage != null) {
+      _messages.add(
+        ChatMessage(
+          text: widget.initialText ?? '',
+          time:
+              "${DateTime.now().hour}:${DateTime.now().minute.toString().padLeft(2, '0')}",
+          isMe: true,
+          imageBytes: widget.initialImage,
+        ),
+      );
+    }
   }
 
   @override
@@ -90,7 +123,9 @@ class _ChatState extends State<Chat> {
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
-      endDrawer: Drawer(child: DrawerTab(nomeUsuario: _nomeUsuario)),
+      endDrawer: Drawer(
+        child: DrawerTab(nomeUsuario: _nomeUsuario, companyName: _companyName),
+      ),
       body: Column(
         children: [
           // Área das mensagens
@@ -145,23 +180,40 @@ class _ChatState extends State<Chat> {
             ),
           ],
         ),
-        child: Wrap(
-          alignment: WrapAlignment.end,
-          crossAxisAlignment: WrapCrossAlignment.end,
-          spacing: 8,
+        child: Column(
+          crossAxisAlignment: message.isMe
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              message.text,
-              style: TextStyle(
-                fontSize: 12,
-                color: message.isMe
-                    ? ColorsApp.primaryColor
-                    : ColorsApp.secondaryColor,
+            if (message.imageBytes != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Image.memory(
+                  message.imageBytes!,
+                  width: 200,
+                  fit: BoxFit.cover,
+                ),
               ),
-            ),
-            Text(
-              message.time,
-              style: const TextStyle(fontSize: 10, color: Colors.grey),
+            Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.end,
+              spacing: 8,
+              children: [
+                Text(
+                  message.text,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: message.isMe
+                        ? ColorsApp.primaryColor
+                        : ColorsApp.secondaryColor,
+                  ),
+                ),
+                Text(
+                  message.time,
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+              ],
             ),
           ],
         ),
@@ -216,22 +268,71 @@ class _ChatState extends State<Chat> {
                     icon: const Icon(Icons.camera_alt, color: Colors.grey),
                     onPressed: () {},
                   ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.list_alt, color: Colors.grey),
+                    onSelected: (value) {
+                      _messageController.text = value;
+                    },
+                    itemBuilder: (context) {
+                      return quickMessages.map<PopupMenuEntry<String>>((item) {
+                        return PopupMenuItem<String>(
+                          value: item['content'],
+                          child: Text(item['title']),
+                        );
+                      }).toList();
+                    },
+                  ),
+                  const SizedBox(width: 5),
+                  // Botão circular de enviar / microfone
+                  GestureDetector(
+                    onTap: _sendMessage,
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundColor:
+                          ColorsApp.secondaryColor, //Color(0xFF075E54),
+                      child: Icon(
+                        Icons.send,
+                        color: ColorsApp.primaryColor,
+                        size: 22,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ),
-          const SizedBox(width: 5),
-          // Botão circular de enviar / microfone
-          GestureDetector(
-            onTap: _sendMessage,
-            child: CircleAvatar(
-              radius: 24,
-              backgroundColor: ColorsApp.secondaryColor, //Color(0xFF075E54),
-              child: Icon(Icons.send, color: ColorsApp.primaryColor, size: 22),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> getResponses() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final baseUrl = dotenv.env['BASE_URL'];
+      final response = await http.post(
+        Uri.parse('$baseUrl${Endpoints.list}'),
+        headers: {
+          'Authorization': 'Bearer ${prefs.getString('access_token')}',
+          'Content-Type': 'application/json',
+          'X-TENANT-ID': "${prefs.getString("tenant_id")}",
+        },
+        body: jsonEncode({
+          'q':
+              "SELECT * FROM quick_responses WHERE company_id = '${prefs.getString('company_id')}'",
+        }),
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        quickMessages = (data['results'] as List).map((item) {
+          return {'title': item['title'], 'content': item['content']};
+        }).toList();
+        setState(() {});
+      } else {
+        log('Erro ao obter respostas: ${response.body}');
+      }
+    } catch (e) {
+      log('Erro ao obter respostas: $e');
+    }
   }
 }

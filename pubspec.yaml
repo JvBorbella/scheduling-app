@@ -46,6 +46,8 @@ dependencies:
   http_parser: ^4.1.2
   all_validations_br: ^4.3.0
   uuid: ^4.5.3
+  webview_flutter: ^4.14.1
+  qr: ^4.0.0
 
 dev_dependencies:
   flutter_test:
