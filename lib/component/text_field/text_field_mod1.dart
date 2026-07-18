@@ -46,14 +46,19 @@ class _TextFieldMod1State extends State<TextFieldMod1> {
           inputFormatters: widget.inputFormatters,
           onChanged: widget.onChanged,
           keyboardType: widget.keyboardType,
+          style: TextStyle(color: ColorsApp.secondaryColor),
           decoration: InputDecoration(
-            labelText: widget.labelText ?? '',
+            labelText: widget.labelText,
             labelStyle: TextStyle(color: Colors.grey, fontSize: 10),
-            fillColor: Colors.grey[350],
+            fillColor: ColorsApp.secondaryColor.withValues(alpha: 0.15),
             filled: true,
             suffix: widget.suffix,
             suffixIcon: widget.suffixIcon != null
-                ? IconButton(onPressed: null, icon: widget.suffixIcon)
+                ? IconButton(
+                    onPressed: null,
+                    icon: widget.suffixIcon,
+                    color: ColorsApp.secondaryColor,
+                  )
                 : null,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12.0),

@@ -164,6 +164,7 @@ class _LoginState extends State<Login> {
                         obscurePassword
                             ? Icons.visibility
                             : Icons.visibility_off,
+                        color: ColorsApp.secondaryColor,
                       ),
                     ),
                   ),

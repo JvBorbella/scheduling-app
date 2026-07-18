@@ -3,7 +3,6 @@ import 'dart:developer';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
-import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/main.dart';
 import 'package:scheduling/requests/endpoints.dart';
 import 'package:scheduling/style/color.dart';
@@ -109,8 +108,11 @@ class _ChatState extends State<Chat> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFECE5DD),
+      backgroundColor: ColorsApp.primaryColor.withOpacity(0.2),
       appBar: AppBar(
+        iconTheme: IconThemeData(color: ColorsApp.secondaryColor, size: 30),
+        backgroundColor: ColorsApp.primaryColor,
+        surfaceTintColor: ColorsApp.primaryColor,
         leading: IconButton(
           onPressed: () => Navigator.push(
             context,
@@ -120,7 +122,11 @@ class _ChatState extends State<Chat> {
         ),
         title: Text(
           'Matheus Stevam',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: ColorsApp.secondaryColor,
+          ),
         ),
       ),
       endDrawer: Drawer(

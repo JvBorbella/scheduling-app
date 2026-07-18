@@ -10,11 +10,13 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
+import 'package:scheduling/component/card/card_list.dart';
 import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod2.dart';
 import 'package:scheduling/component/text_field/text_field_mod1.dart';
 import 'package:scheduling/main.dart';
 import 'package:scheduling/mask/cnpj.dart';
+import 'package:scheduling/modals_crud/crud_quick_responses.dart';
 import 'package:scheduling/page/users.dart';
 import 'package:scheduling/requests/company.dart';
 import 'package:scheduling/requests/endpoints.dart';
@@ -101,6 +103,14 @@ class _AdminPageState extends State<AdminPage> {
     return Color(int.parse(hex, radix: 16));
   }
 
+  List<dynamic> quickResponses = [];
+  List<dynamic> licenses = [];
+
+  // String formatarData(String data) {
+  //   DateTime dataFormatada = DateTime.parse(data);
+  //   return dataFormatada.toLocal().toString();
+  // }
+
   Future<void> getUsuario() async {
     final prefs = await SharedPreferences.getInstance();
     final nomeUsuario = prefs.getString('nome_usuario');
@@ -135,11 +145,89 @@ class _AdminPageState extends State<AdminPage> {
     });
   }
 
+  Future<void> getQuickResponses() async {
+    final baseUrl = dotenv.env['BASE_URL'];
+    final prefs = await SharedPreferences.getInstance();
+    final response = await http.post(
+      Uri.parse('$baseUrl${Endpoints.list}'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${prefs.getString('access_token')}',
+        'X-TENANT-ID': "${prefs.getString("tenant_id")}",
+      },
+      body: jsonEncode({
+        'q':
+            'SELECT * FROM quick_responses WHERE COALESCE(is_deleted, 0) <> 1;',
+      }),
+    );
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      setState(() {
+        quickResponses = data['results'];
+      });
+    }
+  }
+
+  Future<void> deleteQuickResponse(String id) async {
+    final baseUrl = dotenv.env['BASE_URL'];
+    final prefs = await SharedPreferences.getInstance();
+    final response = await http.post(
+      Uri.parse('$baseUrl${Endpoints.delete}'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${prefs.getString('access_token')}',
+        'X-TENANT-ID': "${prefs.getString("tenant_id")}",
+      },
+      body: jsonEncode({'tabela': 'quick_responses', 'id': id.toString()}),
+    );
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Resposta rápida deletada com sucesso!"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response.body), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> getLicenses() async {
+    final baseUrl = dotenv.env['BASE_URL'];
+    final prefs = await SharedPreferences.getInstance();
+    final response = await http.post(
+      Uri.parse('$baseUrl${Endpoints.list}'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${prefs.getString('access_token')}',
+        'X-TENANT-ID': "${prefs.getString("tenant_id")}",
+      },
+      body: jsonEncode({
+        'q':
+            'SELECT * FROM licenses WHERE tenant_id = "${prefs.getString("tenant_id")}"',
+      }),
+    );
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> data = json.decode(response.body);
+      setState(() {
+        licenses = data['results'];
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(response.body), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     getUsuario();
     getCompany();
+    getQuickResponses();
+    getLicenses();
     _primaryController = CircleColorPickerController(
       initialColor: ColorsApp.primaryColor,
     );
@@ -632,9 +720,7 @@ class _AdminPageState extends State<AdminPage> {
                                 }
                                 try {
                                   final response = await http.post(
-                                    Uri.parse(
-                                      baseUrl + Endpoints.insertCompany,
-                                    ),
+                                    Uri.parse(baseUrl + Endpoints.edit),
                                     headers: {
                                       'Content-Type': 'application/json',
                                       'Authorization': 'Bearer $token',
@@ -642,27 +728,37 @@ class _AdminPageState extends State<AdminPage> {
                                           "${prefs.getString("tenant_id")}",
                                     },
                                     body: json.encode({
-                                      "name": _nameController.text,
-                                      "trade_name": _companyNameController.text,
-                                      "tenant_id":
-                                          "${prefs.getString("empresa_id")}",
-                                      "company_id":
-                                          "${prefs.getString("company_id")}",
-                                      "cnpj": unMasked(_cnpjController.text),
-                                      "email": _emailController.text,
-                                      "phone": unMasked(_phoneController.text),
-                                      "zip_code": unMasked(_cepController.text),
-                                      "street": _addressController.text,
-                                      "street_number": _numeroController.text,
-                                      "complement": _complementoController.text,
-                                      "neighborhood": _bairroController.text,
-                                      "city": _cidadeController.text,
-                                      "state": _estadoController.text,
-                                      "primary_color": _primaryColor,
-                                      "secondary_color": _secondaryColor,
-                                      "logo_url": urlImage,
-                                      "is_headquarters": 0,
-                                      "parent_id": null,
+                                      "tabela": "companies",
+                                      "id": "${prefs.getString("company_id")}",
+                                      "values": {
+                                        "name": _nameController.text,
+                                        "trade_name":
+                                            _companyNameController.text,
+                                        // "tenant_id":
+                                        //     "${prefs.getString("empresa_id")}",
+                                        // "company_id":
+                                        //     "${prefs.getString("company_id")}",
+                                        "cnpj": unMasked(_cnpjController.text),
+                                        "email": _emailController.text,
+                                        "phone": unMasked(
+                                          _phoneController.text,
+                                        ),
+                                        "zip_code": unMasked(
+                                          _cepController.text,
+                                        ),
+                                        "street": _addressController.text,
+                                        "street_number": _numeroController.text,
+                                        "complement":
+                                            _complementoController.text,
+                                        "neighborhood": _bairroController.text,
+                                        "city": _cidadeController.text,
+                                        "state": _estadoController.text,
+                                        "primary_color": _primaryColor,
+                                        "secondary_color": _secondaryColor,
+                                        "logo_url": urlImage,
+                                        "is_headquarters": 0,
+                                        //"parent_id": null,
+                                      },
                                     }),
                                   );
                                   if (response.statusCode == 200) {
@@ -738,13 +834,17 @@ class _AdminPageState extends State<AdminPage> {
                                     },
                                   }),
                                 );
-                                if (response.statusCode == 201) {
+                                if (response.statusCode == 200) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text("Resposta rápida salva!"),
                                       backgroundColor: Colors.green,
                                     ),
                                   );
+                                  getQuickResponses();
+                                  _quickMessageTitleController.clear();
+                                  _quickMessageController.clear();
+                                  setState(() {});
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -757,6 +857,93 @@ class _AdminPageState extends State<AdminPage> {
                               text: 'Salvar',
                               color: ColorsApp.secondaryColor,
                             ),
+                            AdminTile(
+                              title: 'Lista de respostas',
+                              initialExpanded: false,
+                              content: Column(
+                                children: quickResponses.map((quickResponse) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: CardList(
+                                      title: quickResponse['title'],
+                                      text: quickResponse['content'],
+                                      textInfo: 'Cód ${quickResponse['code']}',
+                                      iconButton: Row(
+                                        children: [
+                                          IconButton(
+                                            onPressed: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) =>
+                                                    CrudQuickResponse.modalMod1(
+                                                      context,
+                                                      quickResponse['id'],
+                                                      quickResponse['title'],
+                                                      quickResponse['content'],
+                                                    ),
+                                              ).then((value) {
+                                                getQuickResponses();
+                                                setState(() {});
+                                              });
+                                            },
+                                            icon: Icon(Icons.edit),
+                                            color: Colors.amber,
+                                          ),
+                                          IconButton(
+                                            onPressed: () => {
+                                              deleteQuickResponse(
+                                                quickResponse['id'],
+                                              ),
+                                              setState(() {
+                                                getQuickResponses();
+                                              }),
+                                            },
+                                            icon: Icon(Icons.delete),
+                                            color: Colors.red,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            // Expanded(
+                            //   child: ListView.builder(
+                            //     itemCount: quickResponses.length,
+                            //     itemBuilder: (context, index) {
+                            //       final quickResponse = quickResponses[index];
+                            //       return Padding(
+                            //         padding: const EdgeInsets.only(
+                            //           bottom: 10,
+                            //         ),
+                            //         child: CardList(
+                            //           title: quickResponse['title'],
+                            //           text: quickResponse['content'],
+                            //           textInfo: 'Cód ${quickResponse['code']}',
+                            //           iconButton: IconButton(
+                            //             onPressed: () => showDialog(
+                            //               context: context,
+                            //               builder: (context) =>
+                            //                   CrudQuickResponse.modalMod1(
+                            //                     context,
+                            //                     quickResponse['id'],
+                            //                     quickMessageTitleController
+                            //                       ..text =
+                            //                           quickResponse['title'],
+                            //                     quickMessageController
+                            //                       ..text =
+                            //                           quickResponse['content'],
+                            //                   ),
+                            //             ),
+                            //             icon: Icon(Icons.edit),
+                            //             color: Colors.amber,
+                            //           ),
+                            //         ),
+                            //       );
+                            //     },
+                            //   ),
+                            // ),
                           ],
                         ),
                       ),
@@ -775,17 +962,29 @@ class _AdminPageState extends State<AdminPage> {
                         ),
                       ),
                       // Licenciamento
-                      const AdminTile(
+                      AdminTile(
                         title: 'Licenciamento',
                         initialExpanded: false,
                         content: Column(
-                          children: [
-                            SizedBox(height: 8),
-                            Text(
-                              'Informações de licenciamento do sistema',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ],
+                          children: licenses.map((licenses) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: CardList(
+                                title: licenses['client_key'],
+                                text:
+                                    'Plano: ${licenses['plan']}\nData da assinatura: ${licenses['issued_at']}\nData de expiração: ${licenses['expires_at']}\nStatus: ${licenses['is_active'] == 1 ? 'Ativo 🟢' : 'Inativo 🔴'}',
+                                iconButton: licenses['is_active'] == 0
+                                    ? Text(
+                                        'Reativar',
+                                        style: TextStyle(
+                                          color: Colors.red,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      )
+                                    : null,
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
                     ],

@@ -22,6 +22,7 @@ class _ModalMod1State extends State<ModalMod1> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      backgroundColor: ColorsApp.primaryColor,
       alignment: Alignment.center,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       title: widget.title != null
@@ -42,7 +43,7 @@ class _ModalMod1State extends State<ModalMod1> {
         SizedBox(height: 10),
         ButtonMod1(
           text: 'Fechar',
-          color: ColorsApp.secondaryColor,
+          color: Colors.red,
           colorLabel: ColorsApp.primaryColor,
           onPressed: () => Navigator.of(context).pop(),
         ),

@@ -23,12 +23,15 @@ class _SearchBarDefaultState extends State<SearchBarDefault> {
           icon: Icon(Icons.filter_list_alt, color: ColorsApp.secondaryColor),
         ),
       ],
-      backgroundColor: WidgetStatePropertyAll(
-        Color.fromARGB(255, 216, 216, 216),
+      backgroundColor: WidgetStatePropertyAll(Colors.transparent),
+      side: WidgetStatePropertyAll(
+        BorderSide(color: ColorsApp.secondaryColor, width: 1),
       ),
       shadowColor: WidgetStatePropertyAll(Colors.transparent),
       hintText: 'Pesquise pelo ${widget.hintText ?? '...'}',
-      hintStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
+      hintStyle: WidgetStatePropertyAll(
+        TextStyle(fontSize: 12, color: ColorsApp.secondaryColor.withAlpha(75)),
+      ),
       onChanged: (value) {
         // Lógica de busca aqui
       },

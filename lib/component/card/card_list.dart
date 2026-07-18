@@ -49,7 +49,10 @@ class _CardListState extends State<CardList> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.max,
-              children: [widget.iconButton, textCard(widget.textInfo ?? '')],
+              children: [
+                widget.iconButton ?? SizedBox(),
+                textCard(widget.textInfo ?? ''),
+              ],
             ),
           ],
         ),

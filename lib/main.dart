@@ -6,16 +6,21 @@ import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_expanded_tile/flutter_expanded_tile.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:omni_datetime_picker/omni_datetime_picker.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
+import 'package:scheduling/component/button/text_icon_button.dart';
+import 'package:scheduling/component/card/card_list.dart';
 import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod2.dart';
 import 'package:scheduling/component/text_field/text_field_mod1.dart';
 import 'package:scheduling/mask/cnpj.dart';
 import 'package:scheduling/modals_crud/crud_customer.dart';
 import 'package:scheduling/modals_crud/crud_scheduling.dart';
+import 'package:scheduling/modals_crud/crud_services.dart';
 import 'package:scheduling/page/admin.dart';
 import 'package:scheduling/page/users.dart';
 import 'package:scheduling/requests/company.dart';
@@ -33,7 +38,11 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('pt_BR', null);
+  await ColorsApp.getCompany();
+  await ColorsApp.setColors();
   runApp(const MyApp());
 }
 
@@ -497,45 +506,17 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  Future<void> getCompany() async {
-    final prefs = await SharedPreferences.getInstance();
-    final empresaId = prefs.getString("empresa_id");
-    if (empresaId != null) {
-      CompanyRequest().getCompany().then((response) async {
-        if (response.statusCode == 200) {
-          final Map<String, dynamic> data = json.decode(response.body);
-          log(response.body.toString());
-          if (data['results'].isEmpty) {
-            prefs.setString('primary_color', '');
-            prefs.setString('secondary_color', '');
-            prefs.setString('logo_url', '');
-          } else {
-            await prefs.setString(
-              'primary_color',
-              data['results'][0]['primary_color'],
-            );
-            await prefs.setString(
-              'secondary_color',
-              data['results'][0]['secondary_color'],
-            );
-            await prefs.setString('logo_url', data['results'][0]['logo_url']);
-          }
-        }
-      });
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    getCompany();
-    ColorsApp.setColors();
-  }
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Agendamentos',
+      locale: const Locale('pt', 'BR'),
+      supportedLocales: const [Locale('pt', 'BR')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blueAccent),
         useMaterial3: true,
@@ -560,6 +541,7 @@ class DrawerTab extends StatefulWidget {
 }
 
 class _DrawerTabState extends State<DrawerTab> {
+  List<dynamic> services = [];
   final TextEditingController _nameServiceController = TextEditingController();
   final TextEditingController _descripTionServiceController =
       TextEditingController();
@@ -571,6 +553,35 @@ class _DrawerTabState extends State<DrawerTab> {
     _descripTionServiceController.dispose();
     _priceServiceController.dispose();
     super.dispose();
+  }
+
+  Future<Map<String, dynamic>> getProducts() async {
+    final prefs = await SharedPreferences.getInstance();
+    await dotenv.load(fileName: ".env");
+    final baseUrl = dotenv.env['BASE_URL']!;
+
+    final response = await http.post(
+      Uri.parse(baseUrl + Endpoints.list),
+      headers: {
+        'Authorization': 'Bearer ${prefs.getString('access_token')}',
+        'Content-Type': 'application/json',
+        'X-TENANT-ID': '${prefs.getString('empresa_id')}',
+      },
+      body: jsonEncode({
+        "q":
+            "SELECT * FROM products WHERE tenant_id = '${prefs.getString('tenant_id')}' AND COALESCE(is_deleted,0) <> 1",
+      }),
+    );
+
+    return jsonDecode(response.body);
+  }
+
+  //late Future<Map<String, dynamic>> _futureProducts;
+
+  @override
+  void initState() {
+    super.initState();
+    getProducts();
   }
 
   @override
@@ -680,7 +691,7 @@ class _DrawerTabState extends State<DrawerTab> {
             SizedBox(height: 20),
             ListTile(
               onTap: () {
-                //Navigator.pop(context); // Fechar o drawer
+                Navigator.pop(context); // Fechar o drawer
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const AdminPage()),
@@ -828,7 +839,7 @@ class _DrawerTabState extends State<DrawerTab> {
                   // Primeiro Item (Cadastro)
                   ListTile(
                     title: Text(
-                      "Cadastro",
+                      "Cadastrar Novo",
                       style: TextStyle(
                         color: ColorsApp.secondaryColor,
                         fontSize: 15,
@@ -839,101 +850,7 @@ class _DrawerTabState extends State<DrawerTab> {
                       vertical: 4,
                     ),
                     onTap: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => ModalMod1(
-                          title: 'Cadastro',
-                          content: Container(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              spacing: 10.0,
-                              children: [
-                                CircleAvatar(
-                                  radius: 20,
-                                  backgroundColor: ColorsApp.secondaryColor,
-                                  child: Icon(
-                                    Icons.image,
-                                    color: ColorsApp.primaryColor,
-                                  ),
-                                ),
-                                TextFieldMod1(
-                                  controller: _nameServiceController,
-                                  labelText: 'Nome',
-                                  keyboardType: TextInputType.text,
-                                ),
-                                TextFieldMod1(
-                                  controller: _descripTionServiceController,
-                                  labelText: 'Descrição',
-                                  keyboardType: TextInputType.text,
-                                ),
-                                TextFieldMod1(
-                                  controller: _priceServiceController,
-                                  labelText: 'Preço',
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [CurrencyMask()],
-                                ),
-                              ],
-                            ),
-                          ),
-                          onPressed: () async {
-                            final prefs = await SharedPreferences.getInstance();
-                            final token = prefs.getString('access_token');
-                            await dotenv.load(fileName: ".env");
-                            final baseUrl = dotenv.env['BASE_URL']!;
-                            try {
-                              final response = await http.post(
-                                Uri.parse(baseUrl + Endpoints.insert),
-                                headers: {
-                                  'Authorization': 'Bearer $token',
-                                  'Content-Type': 'application/json',
-                                  'X-TENANT-ID':
-                                      '${prefs.getString('empresa_id')}',
-                                },
-                                body: jsonEncode({
-                                  "tabela": "products",
-                                  "values": {
-                                    "tenant_id":
-                                        "${prefs.getString("tenant_id")}",
-                                    "company_id":
-                                        "${prefs.getString("company_id")}",
-                                    "name": _nameServiceController.text,
-                                    "description":
-                                        _descripTionServiceController.text,
-                                    "price": _priceServiceController.text
-                                        .replaceAll(',', '.')
-                                        .replaceAll('R\$', ''),
-                                  },
-                                }),
-                              );
-                              if (response.statusCode == 200) {
-                                Navigator.of(context).pop();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      "Produto cadastrado com sucesso!",
-                                    ),
-                                    backgroundColor: Colors.green,
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(response.body.toString()),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(e.toString()),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      );
+                      CrudServices.modal1(context, '', '', '', 0);
                     },
                   ),
 
@@ -943,7 +860,7 @@ class _DrawerTabState extends State<DrawerTab> {
                   // Segundo Item (Consulta de preço)
                   ListTile(
                     title: Text(
-                      "Consulta de preço",
+                      "Cadastrados",
                       style: TextStyle(
                         color: ColorsApp.secondaryColor,
                         fontSize: 15,
@@ -953,7 +870,109 @@ class _DrawerTabState extends State<DrawerTab> {
                       horizontal: 16,
                       vertical: 4,
                     ),
-                    onTap: () {},
+                    onTap: () async {
+                      var productData = await getProducts();
+
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) => StatefulBuilder(
+                          builder: (BuildContext context, StateSetter setState) {
+                            return ModalMod2(
+                              title: "Produtos cadastrados",
+                              content: SizedBox(
+                                width: double.maxFinite,
+                                child: Column(
+                                  spacing: 10,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: productData['results'].length,
+                                      itemBuilder: (BuildContext context, int index) {
+                                        var product =
+                                            productData['results'][index];
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 10,
+                                          ),
+                                          child: CardList(
+                                            title: product['name'],
+                                            text:
+                                                'Descrição: ${product['description']}\nPreço: ${product['price']}',
+                                            iconButton: IconButton(
+                                              onPressed: () =>
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (context) =>
+                                                        CrudServices.modal1(
+                                                          context,
+                                                          product['id'],
+                                                          product['name'],
+                                                          product['description'],
+                                                          double.parse(
+                                                            product['price'],
+                                                          ),
+                                                        ),
+                                                  ).then((_) async {
+                                                    productData =
+                                                        await getProducts();
+                                                    setState(() {});
+                                                  }),
+                                              icon: Icon(
+                                                Icons.edit,
+                                                color: ColorsApp.secondaryColor,
+                                              ),
+                                            ),
+                                            textInfo:
+                                                'Cód: ${product['code'].toString()}',
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    TextIconButtonMod1(
+                                      text: "Enviar catálogo por WhatsApp",
+                                      icon: Symbols.forward,
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => App(
+                                              selectedIndex: 3,
+                                              child: MessengeList(
+                                                initialText:
+                                                    "Catálogo de Serviços/Produtos:\n\n" +
+                                                    (productData['results']
+                                                            as List)
+                                                        .map(
+                                                          (p) =>
+                                                              "${p['name']} - R\$${p['price']}",
+                                                        )
+                                                        .join("\n"),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      color: ColorsApp.secondaryColor,
+                                      colorLabel: ColorsApp.secondaryColor,
+                                      width: double.maxFinite,
+                                    ),
+                                    ButtonMod1(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      text: "Fechar",
+                                      colorLabel: Colors.white,
+                                      color: Colors.red,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),

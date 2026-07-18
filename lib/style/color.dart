@@ -9,7 +9,7 @@ class ColorsApp {
   static Color primaryColor = Colors.white;
   static Color secondaryColor = Colors.black;
 
-  Future<void> getCompany() async {
+  static Future<void> getCompany() async {
     final prefs = await SharedPreferences.getInstance();
     final empresaId = prefs.getString("empresa_id");
     if (empresaId != null) {
@@ -21,22 +21,22 @@ class ColorsApp {
             prefs.setString('secondary_color', '');
             prefs.setString('logo_url', '');
           } else {
-            await prefs.setString(
+            prefs.setString(
               'primary_color',
               data['results'][0]['primary_color'],
             );
-            await prefs.setString(
+            prefs.setString(
               'secondary_color',
               data['results'][0]['secondary_color'],
             );
-            await prefs.setString('logo_url', data['results'][0]['logo_url']);
+            prefs.setString('logo_url', data['results'][0]['logo_url']);
           }
         }
       });
     }
   }
 
-  static void setColors() async {
+  static Future<void> setColors() async {
     final prefs = await SharedPreferences.getInstance();
     final _primaryColor = prefs.getString('primary_color') ?? '';
     final _secondaryColor = prefs.getString('secondary_color') ?? '';
