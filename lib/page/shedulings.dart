@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:infinite_calendar_view/infinite_calendar_view.dart';
+import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/card/card_list.dart';
 import 'package:scheduling/component/text_field/search_bar.dart';
 import 'package:scheduling/modals_crud/crud_scheduling.dart';
@@ -226,7 +227,9 @@ class _ShedulingsState extends State<Shedulings> {
             startTime: start,
             endTime: start.add(const Duration(hours: 1)),
             data: schedule,
-            eventType: services,
+            eventType: orderItems
+                .where((item) => item['order_id'] == schedule['id'])
+                .toList(),
           ),
         ]);
       }
@@ -240,23 +243,20 @@ class _ShedulingsState extends State<Shedulings> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
+        spacing: 10,
         children: [
-          Row(
-            children: [
-              Expanded(child: SearchBarDefault(hintText: 'agendamento')),
-              IconButton(
-                icon: Icon(Icons.calendar_today),
-                onPressed: () async {
-                  final prefs = await SharedPreferences.getInstance();
-                  setState(() {
-                    typeUI = typeUI == 0 ? 1 : 0;
-                    prefs.setInt('typeUI', typeUI!);
-                  });
-                },
-              ),
-            ],
+          SearchBarDefault(hintText: 'agendamento'),
+          ButtonMod1(
+            onPressed: () {
+              setState(() {
+                typeUI = typeUI == 0 ? 1 : 0;
+              });
+            },
+            color: ColorsApp.secondaryColor,
+            colorLabel: ColorsApp.primaryColor,
+            text:
+                'Modo de visualização: ${typeUI == 0 ? "Lista" : "Calendário"}',
           ),
-          SizedBox(height: 20),
           Expanded(
             child: typeUI == 0
                 ? ListView.builder(
@@ -311,7 +311,13 @@ class _ShedulingsState extends State<Shedulings> {
 
                             final modal = await CrudScheduling.modalMod1(
                               context,
-                              data['service_name'],
+                              orderItems
+                                  .where(
+                                    (item) =>
+                                        item['order_id'] ==
+                                        scheduleds[index]['id'],
+                                  )
+                                  .toList(),
                               data['client'],
                               scheduleds[index]['scheduled_date'],
                               data['id'],
@@ -484,7 +490,14 @@ class _ShedulingsState extends State<Shedulings> {
                           controller: controller,
                           initialDate: selectedDay,
                           daysShowed: 1,
+                          daysHeaderParam: DaysHeaderParam(
+                            daysHeaderVisibility: false,
+                          ),
+                          timesIndicatorsParam: TimesIndicatorsParam(
+                            timesIndicatorsWidth: 40,
+                          ),
                           dayParam: DayParam(
+                            dayColor: Colors.grey[100],
                             dayEventBuilder:
                                 (event, height, width, heightPerMinute) {
                                   return DraggableEventWidget(
@@ -504,6 +517,7 @@ class _ShedulingsState extends State<Shedulings> {
                                       width: width,
                                       title: event.title ?? '',
                                       description: event.description ?? '',
+                                      descriptionFontSize: 8,
                                       onTap: () async {
                                         final schedule =
                                             event.data as Map<String, dynamic>;
@@ -511,7 +525,7 @@ class _ShedulingsState extends State<Shedulings> {
                                         final modal =
                                             await CrudScheduling.modalMod1(
                                               context,
-                                              event.eventType.toString(),
+                                              event.eventType,
                                               schedule['client'],
                                               schedule['scheduled_date']
                                                   .toString(),

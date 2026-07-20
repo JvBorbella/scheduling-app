@@ -37,7 +37,10 @@ class _ButtonMod1State extends State<ButtonMod1> {
         ),
         child: Text(
           widget.text ?? '',
-          style: TextStyle(color: widget.colorLabel ?? ColorsApp.primaryColor),
+          style: TextStyle(
+            color: widget.colorLabel ?? ColorsApp.primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
