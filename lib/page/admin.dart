@@ -13,6 +13,7 @@ import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/card/card_list.dart';
 import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod2.dart';
+import 'package:scheduling/component/return/messenge.dart';
 import 'package:scheduling/component/text_field/text_field_mod1.dart';
 import 'package:scheduling/main.dart';
 import 'package:scheduling/mask/cnpj.dart';
@@ -57,6 +58,14 @@ class _AdminPageState extends State<AdminPage> {
       _nomeUsuario = '',
       _usuarioId = '',
       _companyName = '';
+
+  bool paymentEnabled = false;
+
+  SharedPreferences? prefs;
+
+  Future<void> getPrefs() async {
+    prefs = await SharedPreferences.getInstance();
+  }
 
   @override
   void dispose() {
@@ -152,7 +161,8 @@ class _AdminPageState extends State<AdminPage> {
       Uri.parse('$baseUrl${Endpoints.list}'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${prefs.getString('access_token')}',
+        'Authorization':
+            'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
         'X-TENANT-ID': "${prefs.getString("tenant_id")}",
       },
       body: jsonEncode({
@@ -175,21 +185,25 @@ class _AdminPageState extends State<AdminPage> {
       Uri.parse('$baseUrl${Endpoints.delete}'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${prefs.getString('access_token')}',
+        'Authorization':
+            'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
         'X-TENANT-ID': "${prefs.getString("tenant_id")}",
       },
       body: jsonEncode({'tabela': 'quick_responses', 'id': id.toString()}),
     );
     if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Resposta rápida deletada com sucesso!"),
-          backgroundColor: Colors.green,
-        ),
+      Message.showReturnOverlay(
+        context,
+        Colors.green,
+        Icons.check,
+        "Resposta rápida deletada com sucesso!",
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response.body), backgroundColor: Colors.red),
+      Message.showReturnOverlay(
+        context,
+        Colors.red,
+        Icons.error,
+        response.body.toString(),
       );
     }
   }
@@ -201,7 +215,8 @@ class _AdminPageState extends State<AdminPage> {
       Uri.parse('$baseUrl${Endpoints.list}'),
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': 'Bearer ${prefs.getString('access_token')}',
+        'Authorization':
+            'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
         'X-TENANT-ID': "${prefs.getString("tenant_id")}",
       },
       body: jsonEncode({
@@ -215,8 +230,11 @@ class _AdminPageState extends State<AdminPage> {
         licenses = data['results'];
       });
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(response.body), backgroundColor: Colors.red),
+      Message.showReturnOverlay(
+        context,
+        Colors.red,
+        Icons.error,
+        response.body.toString(),
       );
     }
   }
@@ -228,10 +246,10 @@ class _AdminPageState extends State<AdminPage> {
     getCompany();
     getQuickResponses();
     getLicenses();
+    getPrefs();
     _primaryController = CircleColorPickerController(
       initialColor: ColorsApp.primaryColor,
     );
-
     _secondaryController = CircleColorPickerController(
       initialColor: ColorsApp.secondaryColor,
     );
@@ -657,7 +675,9 @@ class _AdminPageState extends State<AdminPage> {
                                 final baseUrl = dotenv.env['BASE_URL']!;
                                 final prefs =
                                     await SharedPreferences.getInstance();
-                                final token = prefs.getString('access_token');
+                                final token =
+                                    prefs.getString("access_token") ??
+                                    prefs.getString("refresh_token");
                                 String urlImage = '';
                                 try {
                                   var request = http.MultipartRequest(
@@ -711,11 +731,11 @@ class _AdminPageState extends State<AdminPage> {
                                     log('log envio imagem: ${response.body}');
                                   }
                                 } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("Error: $e"),
-                                      backgroundColor: Colors.red,
-                                    ),
+                                  Message.showReturnOverlay(
+                                    context,
+                                    Colors.red,
+                                    Icons.error,
+                                    e.toString(),
                                   );
                                 }
                                 try {
@@ -762,32 +782,30 @@ class _AdminPageState extends State<AdminPage> {
                                     }),
                                   );
                                   if (response.statusCode == 200) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          "Filial cadastrada com sucesso!",
-                                        ),
-                                        backgroundColor: Colors.green,
-                                      ),
+                                    Message.showReturnOverlay(
+                                      context,
+                                      Colors.green,
+                                      Icons.check,
+                                      "Filial cadastrada com sucesso!",
                                     );
                                     prefs.setString(
                                       "cnpjCompany",
                                       unMasked(_cnpjController.text)!,
                                     );
                                   } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(response.body),
-                                        backgroundColor: Colors.red,
-                                      ),
+                                    Message.showReturnOverlay(
+                                      context,
+                                      Colors.red,
+                                      Icons.error,
+                                      response.body.toString(),
                                     );
                                   }
                                 } catch (e) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("Error: $e"),
-                                      backgroundColor: Colors.red,
-                                    ),
+                                  Message.showReturnOverlay(
+                                    context,
+                                    Colors.red,
+                                    Icons.error,
+                                    e.toString(),
                                   );
                                 }
                               },
@@ -820,7 +838,7 @@ class _AdminPageState extends State<AdminPage> {
                                   Uri.parse('$baseUrl${Endpoints.insert}'),
                                   headers: {
                                     'Authorization':
-                                        'Bearer ${prefs.getString('access_token')}',
+                                        'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
                                     'Content-Type': 'application/json',
                                     'X-TENANT-ID':
                                         "${prefs.getString("tenant_id")}",
@@ -835,22 +853,22 @@ class _AdminPageState extends State<AdminPage> {
                                   }),
                                 );
                                 if (response.statusCode == 200) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("Resposta rápida salva!"),
-                                      backgroundColor: Colors.green,
-                                    ),
+                                  Message.showReturnOverlay(
+                                    context,
+                                    Colors.green,
+                                    Icons.check,
+                                    "Resposta rápida salva!",
                                   );
                                   getQuickResponses();
                                   _quickMessageTitleController.clear();
                                   _quickMessageController.clear();
                                   setState(() {});
                                 } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(response.body),
-                                      backgroundColor: Colors.red,
-                                    ),
+                                  Message.showReturnOverlay(
+                                    context,
+                                    Colors.red,
+                                    Icons.error,
+                                    response.body.toString(),
                                   );
                                 }
                               },
@@ -908,55 +926,53 @@ class _AdminPageState extends State<AdminPage> {
                                 }).toList(),
                               ),
                             ),
-                            // Expanded(
-                            //   child: ListView.builder(
-                            //     itemCount: quickResponses.length,
-                            //     itemBuilder: (context, index) {
-                            //       final quickResponse = quickResponses[index];
-                            //       return Padding(
-                            //         padding: const EdgeInsets.only(
-                            //           bottom: 10,
-                            //         ),
-                            //         child: CardList(
-                            //           title: quickResponse['title'],
-                            //           text: quickResponse['content'],
-                            //           textInfo: 'Cód ${quickResponse['code']}',
-                            //           iconButton: IconButton(
-                            //             onPressed: () => showDialog(
-                            //               context: context,
-                            //               builder: (context) =>
-                            //                   CrudQuickResponse.modalMod1(
-                            //                     context,
-                            //                     quickResponse['id'],
-                            //                     quickMessageTitleController
-                            //                       ..text =
-                            //                           quickResponse['title'],
-                            //                     quickMessageController
-                            //                       ..text =
-                            //                           quickResponse['content'],
-                            //                   ),
-                            //             ),
-                            //             icon: Icon(Icons.edit),
-                            //             color: Colors.amber,
-                            //           ),
-                            //         ),
-                            //       );
-                            //     },
-                            //   ),
-                            // ),
                           ],
                         ),
                       ),
                       // Pagamentos
-                      const AdminTile(
+                      AdminTile(
                         title: 'Pagamentos',
                         initialExpanded: false,
                         content: Column(
                           children: [
-                            SizedBox(height: 8),
-                            Text(
-                              'Opções de pagamento',
-                              style: TextStyle(color: Colors.grey),
+                            TextButton(
+                              child: Text(
+                                'Termos e condições de uso',
+                                style: TextStyle(
+                                  color: ColorsApp.secondaryColor,
+                                ),
+                              ),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) =>
+                                      ModalMod2(content: Text('')),
+                                );
+                              },
+                            ),
+                            CheckboxListTile(
+                              activeColor: ColorsApp.secondaryColor,
+                              checkColor: ColorsApp.primaryColor,
+                              value: paymentEnabled =
+                                  prefs?.getBool('payment_enabled') ?? false,
+                              onChanged: (value) async {
+                                await prefs?.setBool('payment_enabled', value!);
+                                setState(() {});
+                              },
+                              title: Text(
+                                'Cobrança no agendamento',
+                                style: TextStyle(
+                                  color: ColorsApp.secondaryColor,
+                                ),
+                              ),
+                              subtitle: Text(
+                                'Sujeito a taxas',
+                                style: TextStyle(
+                                  color: ColorsApp.secondaryColor.withAlpha(
+                                    100,
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),

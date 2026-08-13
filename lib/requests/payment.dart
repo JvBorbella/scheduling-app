@@ -177,7 +177,7 @@ class PaymentService {
   //     final response = await http.post(
   //       url,
   //       headers: {
-  //         'Authorization': 'Bearer ${prefs.getString('access_token')}',
+  //         'Authorization': 'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
   //         'Content-Type': 'application/json',
   //       },
   //       body: body,
@@ -271,7 +271,8 @@ class PaymentService {
           .post(
             Uri.parse(url),
             headers: {
-              'Authorization': 'Bearer ${prefs.getString("access_token")}',
+              'Authorization':
+                  'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
               'Content-Type': 'application/json',
               'X-Tenant-ID': prefs.getString("tenant_id") ?? '',
             },

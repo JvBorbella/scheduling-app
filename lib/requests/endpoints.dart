@@ -1,5 +1,6 @@
 class Endpoints {
   static const String login = "/api/auth/login_data";
+  static const String logout = "/api/auth/logout";
   static const String insert = "/api/lynxbd/dados_inserir";
   static const String edit = "/api/lynxbd/dados_editar";
   static const String delete = "/api/lynxbd/dados_deletar";

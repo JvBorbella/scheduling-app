@@ -1,11 +1,19 @@
 import 'dart:convert';
+import 'dart:developer';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:infinite_calendar_view/infinite_calendar_view.dart';
+import 'package:intl/intl.dart';
+import 'package:omni_datetime_picker/omni_datetime_picker.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/card/card_list.dart';
+import 'package:scheduling/component/modal/modal_mod1.dart';
+import 'package:scheduling/component/modal/modal_mod2.dart';
+import 'package:scheduling/component/return/messenge.dart';
 import 'package:scheduling/component/text_field/search_bar.dart';
+import 'package:scheduling/component/text_field/text_field_mod1.dart';
 import 'package:scheduling/modals_crud/crud_scheduling.dart';
 import 'package:scheduling/requests/endpoints.dart';
 import 'package:scheduling/style/color.dart';
@@ -18,6 +26,10 @@ class Shedulings extends StatefulWidget {
   @override
   State<Shedulings> createState() => _ShedulingsState();
 }
+
+final GlobalKey<EventsMonthsState> _monthsKey = GlobalKey<EventsMonthsState>();
+final GlobalKey<EventsPlannerState> _plannerKey =
+    GlobalKey<EventsPlannerState>();
 
 class _ShedulingsState extends State<Shedulings> {
   List<bool> notifyActivated = [];
@@ -53,11 +65,17 @@ class _ShedulingsState extends State<Shedulings> {
 
   int typeUI = 0; // 0 = list; 1 = calendar
   DateTime? selectedDay; // null = mês, não-null = planner
+  List<DateTime>? selectedRange; // null = mês, não-null = planner
   String selectedMonth = DateTime.now().month.toString();
+
+  TextEditingController customerController = TextEditingController();
+  TextEditingController serviceController = TextEditingController();
+  TextEditingController _descriptionController = TextEditingController();
 
   Future<void> _listScheduleds() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('access_token');
+    final token =
+        prefs.getString("access_token") ?? prefs.getString("refresh_token");
     await dotenv.load(fileName: ".env");
     final baseUrl = dotenv.env['BASE_URL']!;
     try {
@@ -66,11 +84,11 @@ class _ShedulingsState extends State<Shedulings> {
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'X-TENANT-ID': '4368297b-944d-4bc5-827c-333cfdf012f9',
+          'X-TENANT-ID': '${prefs.getString('tenant_id')}',
         },
         body: jsonEncode({
           "q":
-              "SELECT o.id, o.tenant_id, o.company_id, o.code, o.created_at AS scheduled_date, o.total_amount, p.name AS client, p.cpf, p.cnpj FROM orders o LEFT JOIN persons p ON p.id = o.customer_id WHERE o.tenant_id = '${prefs.getString('tenant_id')}'",
+              "SELECT o.id_orders, o.tenant_id, o.company_id, o.code, o.created_at AS scheduled_date, o.total_amount, p.name AS client, p.cpf, p.cnpj FROM orders o LEFT JOIN persons p ON p.id_persons = o.customer_id WHERE o.tenant_id = '${prefs.getString('tenant_id')}'",
         }),
       );
       if (response.statusCode == 200) {
@@ -84,20 +102,22 @@ class _ShedulingsState extends State<Shedulings> {
           scheduleds = data;
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.body), backgroundColor: Colors.red),
+        Message.showReturnOverlay(
+          context,
+          Colors.red,
+          Icons.error,
+          response.body.toString(),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-      );
+      Message.showReturnOverlay(context, Colors.red, Icons.error, e.toString());
     }
   }
 
   Future<void> _listOrderItems() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('access_token');
+    final token =
+        prefs.getString("access_token") ?? prefs.getString("refresh_token");
     await dotenv.load(fileName: ".env");
     final baseUrl = dotenv.env['BASE_URL']!;
     try {
@@ -110,7 +130,7 @@ class _ShedulingsState extends State<Shedulings> {
         },
         body: jsonEncode({
           "q":
-              "SELECT oi.id, oi.product_id, oi.code, oi.product_name, oi.quantity, oi.unit_price, oi.order_id FROM order_items oi",
+              "SELECT oi.id_order_items, oi.product_id, oi.code, oi.product_name, oi.quantity, oi.unit_price, oi.order_id FROM order_items oi",
         }),
       );
       if (response.statusCode == 200) {
@@ -124,14 +144,15 @@ class _ShedulingsState extends State<Shedulings> {
         }
         loadEvents();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(response.body), backgroundColor: Colors.red),
+        Message.showReturnOverlay(
+          context,
+          Colors.red,
+          Icons.error,
+          response.body.toString(),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
-      );
+      Message.showReturnOverlay(context, Colors.red, Icons.error, e.toString());
     }
   }
 
@@ -240,318 +261,578 @@ class _ShedulingsState extends State<Shedulings> {
   //bool notifyActivated = true;
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Column(
-        spacing: 10,
-        children: [
-          SearchBarDefault(hintText: 'agendamento'),
-          ButtonMod1(
-            onPressed: () {
-              setState(() {
-                typeUI = typeUI == 0 ? 1 : 0;
-              });
-            },
-            color: ColorsApp.secondaryColor,
-            colorLabel: ColorsApp.primaryColor,
-            text:
-                'Modo de visualização: ${typeUI == 0 ? "Lista" : "Calendário"}',
-          ),
-          Expanded(
-            child: typeUI == 0
-                ? ListView.builder(
-                    itemCount: scheduleds.length,
-                    shrinkWrap: true,
-                    itemBuilder: (context, index) {
-                      notifyActivated.add(true);
-                      return Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: 10,
-                        ), // Margem externa mantida aqui
-                        child: CardList(
-                          title: _formatDate(
-                            scheduleds[index]['scheduled_date'],
-                          ),
-                          text:
-                              'Serviço(s): ${orderItems.where((item) => item['order_id'] == scheduleds[index]['id']).map((item) => item['product_name']).join(', ')}\nValor: R\$ ${scheduleds[index]['total_amount'].toString()}\nCliente: ${scheduleds[index]['client']}',
-                          textInfo:
-                              'Cód: ${scheduleds[index]['code'].toString()}',
-                          iconButton: IconButton(
-                            onPressed: () {
-                              setState(() {
-                                notifyActivated[index] =
-                                    !notifyActivated[index];
-                              });
-                            },
-                            icon: notifyActivated[index]
-                                ? Icon(
-                                    Icons.notifications_active,
-                                    color: Colors.red,
-                                  )
-                                : Icon(
-                                    Icons.notifications_off,
-                                    color: Colors.grey,
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Column(
+            spacing: 10,
+            children: [
+              SearchBarDefault(
+                hintText: 'agendamento',
+                onPressed: () async {
+                  if (typeUI == 1) {
+                    DateTime? picked = await showOmniDateTimePicker(
+                      context: context,
+                      initialDate: DateTime.now(),
+                      firstDate: DateTime(1600),
+                      lastDate: DateTime(2100),
+                      is24HourMode: false,
+                      isForce2Digits: true,
+                      minutesInterval: 1,
+                      secondsInterval: 1,
+                    );
+                    if (picked != null) {
+                      selectedDay = picked;
+                      setState(() {});
+                    }
+                  } else {
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        return StatefulBuilder(
+                          builder: (context, setState) {
+                            return ModalMod1(
+                              title: 'Filtros',
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                spacing: 10,
+                                children: [
+                                  TextFieldMod1(
+                                    controller: TextEditingController(
+                                      text: selectedRange == null
+                                          ? DateFormat(
+                                              'dd/MM/yyyy HH:mm',
+                                            ).format(DateTime.now())
+                                          : DateFormat(
+                                                  'dd/MM/yyyy HH:mm',
+                                                ).format(selectedRange!.first) +
+                                                ' até ' +
+                                                DateFormat(
+                                                  'dd/MM/yyyy HH:mm',
+                                                ).format(selectedRange!.last),
+                                    ),
+                                    labelText: 'Data e horário',
+                                    suffixIcon: IconButton(
+                                      onPressed: () async {
+                                        List<DateTime>? picked =
+                                            await showOmniDateTimeRangePicker(
+                                              context: context,
+                                            );
+                                        if (picked != null) {
+                                          selectedRange = picked;
+                                          setState(() {});
+                                        }
+                                      },
+                                      icon: Icon(Icons.date_range),
+                                    ),
                                   ),
-                          ),
-                          onLongPress: () async {
-                            final serviceName = orderItems
-                                .where(
-                                  (item) =>
-                                      item['order_id'] ==
-                                      scheduleds[index]['id'],
-                                )
-                                .map((item) => item['product_name'])
-                                .join(', ');
-
-                            final Map<String, dynamic> data =
-                                Map<String, dynamic>.from(scheduleds[index]);
-                            data['service_name'] = serviceName;
-                            data['scheduled_date'] =
-                                scheduleds[index]['scheduled_date']; // manda formatado
-
-                            final modal = await CrudScheduling.modalMod1(
-                              context,
-                              orderItems
-                                  .where(
-                                    (item) =>
-                                        item['order_id'] ==
-                                        scheduleds[index]['id'],
-                                  )
-                                  .toList(),
-                              data['client'],
-                              scheduleds[index]['scheduled_date'],
-                              data['id'],
-                              data['total_amount'],
+                                  TextFieldMod1(
+                                    controller: customerController,
+                                    labelText: 'CLiente',
+                                  ),
+                                  TextFieldMod1(
+                                    controller: serviceController,
+                                    labelText: 'Serviços',
+                                  ),
+                                  Row(
+                                    children: [
+                                      Checkbox(
+                                        value: true,
+                                        onChanged: (value) {},
+                                      ),
+                                      Text(
+                                        'Em aberto',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: ColorsApp.secondaryColor,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Checkbox(
+                                        value: false,
+                                        onChanged: (value) {},
+                                      ),
+                                      Text(
+                                        'Concluído',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: ColorsApp.secondaryColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              textButton: 'Filtrar',
+                              onPressed: () async {
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                final token =
+                                    prefs.getString("access_token") ??
+                                    prefs.getString("refresh_token");
+                                await dotenv.load(fileName: ".env");
+                                final baseUrl = dotenv.env['BASE_URL']!;
+                                try {
+                                  final response = await http.post(
+                                    Uri.parse(baseUrl + Endpoints.list),
+                                    headers: {
+                                      'Authorization': 'Bearer $token',
+                                      'Content-Type': 'application/json',
+                                      'X-TENANT-ID':
+                                          '${prefs.getString('tenant_id')}',
+                                    },
+                                    body: jsonEncode({
+                                      "q":
+                                          "SELECT o.id_orders, o.tenant_id, o.company_id, o.code, o.created_at AS scheduled_date, o.total_amount, p.name AS client, p.cpf, p.cnpj FROM orders o LEFT JOIN persons p ON p.id_persons = o.customer_id WHERE o.tenant_id = '${prefs.getString('tenant_id')}' AND o.scheduled_date BETWEEN '${DateFormat('yyyy-MM-dd HH:mm').format(selectedRange!.first)}' AND '${DateFormat('yyyy-MM-dd HH:mm').format(selectedRange!.last)}' AND o.status = '${'pending'}' AND (p.name LIKE '%${customerController.text}%' OR p.cpf LIKE '%${customerController.text}%' OR p.cnpj LIKE '%${customerController.text}%' OR p.email LIKE '%${customerController.text}%' OR p.phone LIKE '%${customerController.text}%')",
+                                    }),
+                                  );
+                                  if (response.statusCode == 200) {
+                                    final data = json.decode(response.body);
+                                    if (data['results'] is List) {
+                                      setState(() {
+                                        scheduleds = data['results'];
+                                      });
+                                      _listOrderItems();
+                                    } else if (data is List) {
+                                      scheduleds = data;
+                                    }
+                                  } else {
+                                    Message.showReturnOverlay(
+                                      context,
+                                      Colors.red,
+                                      Icons.error,
+                                      response.body.toString(),
+                                    );
+                                  }
+                                } catch (e) {
+                                  Message.showReturnOverlay(
+                                    context,
+                                    Colors.red,
+                                    Icons.error,
+                                    e.toString(),
+                                  );
+                                }
+                              },
                             );
+                          },
+                        );
+                      },
+                    );
+                  }
+                },
+              ),
+              ButtonMod1(
+                onPressed: () {
+                  setState(() {
+                    typeUI = typeUI == 0 ? 1 : 0;
+                  });
+                },
+                color: ColorsApp.secondaryColor,
+                colorLabel: ColorsApp.primaryColor,
+                text:
+                    'Modo de visualização: ${typeUI == 0 ? "Lista" : "Agenda"}',
+              ),
+              Expanded(
+                child: typeUI == 0
+                    ? ListView.builder(
+                        itemCount: scheduleds.length,
+                        shrinkWrap: true,
+                        itemBuilder: (context, index) {
+                          notifyActivated.add(true);
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                              bottom: 10,
+                            ), // Margem externa mantida aqui
+                            child: CardList(
+                              title: _formatDate(
+                                scheduleds[index]['scheduled_date'],
+                              ),
+                              text:
+                                  'Serviço(s): ${orderItems.where((item) => item['order_id'] == scheduleds[index]['id']).map((item) => item['product_name']).join(', ')}\nValor: R\$ ${scheduleds[index]['total_amount'].toString()}\nCliente: ${scheduleds[index]['client']}',
+                              textInfo:
+                                  'Cód: ${scheduleds[index]['code'].toString()}',
+                              iconButton: IconButton(
+                                onPressed: () {
+                                  setState(() {
+                                    notifyActivated[index] =
+                                        !notifyActivated[index];
+                                  });
+                                },
+                                icon: notifyActivated[index]
+                                    ? Icon(
+                                        Icons.notifications_active,
+                                        color: Colors.red,
+                                      )
+                                    : Icon(
+                                        Icons.notifications_off,
+                                        color: Colors.grey,
+                                      ),
+                              ),
+                              onTap: () {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => ModalMod1(
+                                    title: 'Finalizar agendamento',
+                                    content: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Serviço(s): ',
+                                              style: TextStyle(
+                                                color: ColorsApp.secondaryColor,
+                                              ),
+                                            ),
+                                            Text(
+                                              orderItems
+                                                  .where(
+                                                    (item) =>
+                                                        item['order_id'] ==
+                                                        scheduleds[index]['id'],
+                                                  )
+                                                  .map(
+                                                    (item) =>
+                                                        item['product_name'],
+                                                  )
+                                                  .join(', '),
+                                              style: TextStyle(
+                                                color: ColorsApp.secondaryColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Valor: R\$ ',
+                                              style: TextStyle(
+                                                color: ColorsApp.secondaryColor,
+                                              ),
+                                            ),
+                                            Text(
+                                              scheduleds[index]['total_amount']
+                                                  .toString(),
+                                              style: TextStyle(
+                                                color: ColorsApp.secondaryColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Cliente: ',
+                                              style: TextStyle(
+                                                color: ColorsApp.secondaryColor,
+                                              ),
+                                            ),
+                                            Text(
+                                              scheduleds[index]['client'],
+                                              style: TextStyle(
+                                                color: ColorsApp.secondaryColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Row(
+                                          children: [
+                                            Text(
+                                              'Forma de pagamento: ',
+                                              style: TextStyle(
+                                                color: ColorsApp.secondaryColor,
+                                              ),
+                                            ),
+                                            Text(
+                                              scheduleds[index]['payment_type'] ??
+                                                  '',
+                                              style: TextStyle(
+                                                color: ColorsApp.secondaryColor,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        TextFieldMod1(
+                                          controller: _descriptionController,
+                                          maxLines: 5,
+                                          labelText: 'Observação',
+                                        ),
+                                      ],
+                                    ),
+                                    onPressed: () async {},
+                                    textButton: 'Finalizar agendamento',
+                                  ),
+                                );
+                              },
+                              onLongPress: () async {
+                                final serviceName = orderItems
+                                    .where(
+                                      (item) =>
+                                          item['order_id'] ==
+                                          scheduleds[index]['id'],
+                                    )
+                                    .map((item) => item['product_name'])
+                                    .join(', ');
 
-                            showDialog(
-                              context: context,
-                              builder: (context) => modal,
-                            ).then((_) {
-                              _listScheduleds();
+                                final Map<String, dynamic> data =
+                                    Map<String, dynamic>.from(
+                                      scheduleds[index],
+                                    );
+                                data['service_name'] = serviceName;
+                                data['scheduled_date'] =
+                                    scheduleds[index]['scheduled_date']; // manda formatado
+
+                                final modal = await CrudScheduling.modalMod1(
+                                  context,
+                                  orderItems
+                                      .where(
+                                        (item) =>
+                                            item['order_id'] ==
+                                            scheduleds[index]['id_orders'],
+                                      )
+                                      .toList(),
+                                  data['client'],
+                                  scheduleds[index]['scheduled_date'],
+                                  data['id_orders'],
+                                  data['total_amount'],
+                                );
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => modal,
+                                ).then((_) {
+                                  _listScheduleds();
+                                });
+                              },
+                            ),
+                          );
+                        },
+                      )
+                    : selectedDay == null
+                    ? EventsMonths(
+                        key: _monthsKey,
+                        controller: controller,
+                        weekParam: WeekParam(
+                          headerDayTextColor: (dayOfMonth) =>
+                              ColorsApp.secondaryColor,
+                          headerDayBuilder: (dayOfMonth) {
+                            final day = dayOfMonth;
+                            final List dayWeek = [
+                              "Seg",
+                              "Ter",
+                              "Qua",
+                              "Qui",
+                              "Sex",
+                              "Sáb",
+                              "Dom",
+                            ];
+                            return Center(
+                              child: Text(
+                                dayWeek[day - 1],
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: ColorsApp.secondaryColor,
+                                ),
+                              ),
+                            );
+                          },
+                          startOfWeekDay: 1,
+                        ),
+                        daysParam: DaysParam(
+                          onDayTapUp: (DateTime day) {
+                            setState(() {
+                              selectedDay = day;
                             });
                           },
                         ),
-                      );
-                    },
-                  )
-                // : Column(
-                //     children: [
-                //       // Row(
-                //       //   children: [
-                //       //     DropdownButton(
-                //       //       value: selectedMonth,
-                //       //       dropdownColor: ColorsApp.primaryColor,
-                //       //       items: months.map((month) {
-                //       //         return DropdownMenuItem(
-                //       //           child: Text(
-                //       //             month,
-                //       //             style: TextStyle(
-                //       //               color: ColorsApp.secondaryColor,
-                //       //             ),
-                //       //           ),
-                //       //           value: month,
-                //       //         );
-                //       //       }).toList(),
-                //       //       onChanged: (value) {
-                //       //         setState(() {
-                //       //           selectedMonth = value!;
-                //       //         });
-                //       //       },
-                //       //     ),
-                //       //   ],
-                //       // ),
-                //       Row(
-                //         mainAxisAlignment: MainAxisAlignment.spaceAround,
-                //         children: [
-                //           Text(
-                //             'Seg.',
-                //             style: TextStyle(
-                //               fontWeight: FontWeight.bold,
-                //               color: ColorsApp.secondaryColor,
-                //             ),
-                //           ),
-                //           Text(
-                //             'Ter.',
-                //             style: TextStyle(
-                //               fontWeight: FontWeight.bold,
-                //               color: ColorsApp.secondaryColor,
-                //             ),
-                //           ),
-                //           Text(
-                //             'Qua.',
-                //             style: TextStyle(
-                //               fontWeight: FontWeight.bold,
-                //               color: ColorsApp.secondaryColor,
-                //             ),
-                //           ),
-                //           Text(
-                //             'Qui.',
-                //             style: TextStyle(
-                //               fontWeight: FontWeight.bold,
-                //               color: ColorsApp.secondaryColor,
-                //             ),
-                //           ),
-                //           Text(
-                //             'Sex.',
-                //             style: TextStyle(
-                //               fontWeight: FontWeight.bold,
-                //               color: ColorsApp.secondaryColor,
-                //             ),
-                //           ),
-                //           Text(
-                //             'Sáb.',
-                //             style: TextStyle(
-                //               fontWeight: FontWeight.bold,
-                //               color: ColorsApp.secondaryColor,
-                //             ),
-                //           ),
-                //           Text(
-                //             'Dom.',
-                //             style: TextStyle(
-                //               fontWeight: FontWeight.bold,
-                //               color: ColorsApp.secondaryColor,
-                //             ),
-                //           ),
-                //         ],
-                //       ),
-                //       Expanded(
-                //         child: GridView.builder(
-                //           itemCount: daysMonths(
-                //             DateTime.now().year,
-                //             months.indexOf(selectedMonth),
-                //           ).length,
-                //           gridDelegate:
-                //               const SliverGridDelegateWithFixedCrossAxisCount(
-                //                 crossAxisCount: 7,
-                //               ),
-                //           itemBuilder: (context, index) {
-                //             return Container(
-                //               decoration: BoxDecoration(
-                //                 border: Border.all(color: Colors.grey),
-                //                 //borderRadius: BorderRadius.circular(8),
-                //               ),
-                //               child: Center(
-                //                 child: Text(
-                //                   daysMonths(
-                //                     DateTime.now().year,
-                //                     months.indexOf(selectedMonth),
-                //                   )[index].toString(),
-                //                   style: TextStyle(
-                //                     fontWeight: FontWeight.bold,
-                //                     fontSize: 8,
-                //                     color: ColorsApp.secondaryColor,
-                //                   ),
-                //                 ),
-                //               ),
-                //             );
-                //           },
-                //         ),
-                //       ),
-                //     ],
-                //   ),
-                : selectedDay == null
-                ? EventsMonths(
-                    controller: controller,
-                    daysParam: DaysParam(
-                      onDayTapUp: (DateTime day) {
-                        setState(() {
-                          selectedDay = day;
-                        });
-                      },
-                    ),
-                  )
-                : Column(
-                    children: [
-                      Row(
+                      )
+                    : Column(
                         children: [
-                          IconButton(
-                            icon: Icon(
-                              Icons.arrow_back,
-                              color: ColorsApp.secondaryColor,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                selectedDay = null;
-                              });
-                            },
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  Icons.arrow_back,
+                                  color: ColorsApp.secondaryColor,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    selectedDay = null;
+                                  });
+                                },
+                              ),
+                              Text(
+                                '${DateFormat('EEEE', 'pt_BR').format(selectedDay!)}, ${DateFormat('dd').format(selectedDay!)}/${DateFormat('MM').format(selectedDay!)}/${selectedDay!.year}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: ColorsApp.secondaryColor,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            '${selectedDay!.day}/${selectedDay!.month}/${selectedDay!.year}',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: ColorsApp.secondaryColor,
+                          Expanded(
+                            child: EventsPlanner(
+                              key: _plannerKey,
+                              controller: controller,
+                              onDayChange: (DateTime day) {
+                                setState(() {
+                                  selectedDay = day;
+                                });
+                              },
+                              initialDate: selectedDay,
+                              daysShowed: 1,
+                              fullDayParam: FullDayParam(
+                                fullDayEventsBarVisibility: false,
+                              ),
+                              daysHeaderParam: DaysHeaderParam(
+                                daysHeaderVisibility: false,
+                              ),
+                              timesIndicatorsParam: TimesIndicatorsParam(
+                                timesIndicatorsWidth: 50,
+                              ),
+                              offTimesParam: OffTimesParam(
+                                offTimesAllDaysRanges: [
+                                  OffTimeRange(
+                                    TimeOfDay(hour: 0, minute: 0),
+                                    TimeOfDay(hour: 0, minute: 0),
+                                  ),
+                                  OffTimeRange(
+                                    TimeOfDay(hour: 24, minute: 0),
+                                    TimeOfDay(hour: 24, minute: 0),
+                                  ),
+                                ],
+                                offTimesColor: Color(0xFFF4F4F4),
+                              ),
+                              dayParam: DayParam(
+                                onSlotMinutesRound: 30,
+                                dayColor:
+                                    ColorsApp.primaryColor, //Colors.grey[100],
+                                todayColor: ColorsApp.primaryColor,
+                                onSlotTap:
+                                    (
+                                      columnIndex,
+                                      exactDateTime,
+                                      roundDateTime,
+                                    ) async {
+                                      final modal =
+                                          await CrudScheduling.modalMod1(
+                                            context,
+                                            null,
+                                            '',
+                                            roundDateTime.toString(),
+                                            '',
+                                            '',
+                                          );
+
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => modal,
+                                      ).then((_) {
+                                        _listScheduleds();
+                                      });
+                                    },
+                                dayEventBuilder:
+                                    (event, height, width, heightPerMinute) {
+                                      return DraggableEventWidget(
+                                        event: event,
+                                        height: height,
+                                        width: width,
+                                        onDragEnd:
+                                            (
+                                              columnIndex,
+                                              exactStartDateTime,
+                                              exactEndDateTime,
+                                              roundStartDateTime,
+                                              roundEndDateTime,
+                                            ) => print(roundStartDateTime),
+                                        child: DefaultDayEvent(
+                                          color: ColorsApp.secondaryColor,
+                                          textColor: ColorsApp.primaryColor,
+                                          height: height,
+                                          width: width,
+                                          title: event.title ?? '',
+                                          description: event.description ?? '',
+                                          descriptionFontSize: 8,
+                                          onTap: () async {
+                                            final schedule =
+                                                event.data
+                                                    as Map<String, dynamic>;
+
+                                            final modal =
+                                                await CrudScheduling.modalMod1(
+                                                  context,
+                                                  event.eventType,
+                                                  schedule['client'],
+                                                  schedule['scheduled_date']
+                                                      .toString(),
+                                                  schedule['id'].toString(),
+                                                  schedule['total_amount']
+                                                      .toString(),
+                                                );
+
+                                            showDialog(
+                                              context: context,
+                                              builder: (context) => modal,
+                                            ).then((_) {
+                                              _listScheduleds();
+                                            });
+                                          },
+                                        ),
+                                      );
+                                    },
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      Expanded(
-                        child: EventsPlanner(
-                          controller: controller,
-                          initialDate: selectedDay,
-                          daysShowed: 1,
-                          daysHeaderParam: DaysHeaderParam(
-                            daysHeaderVisibility: false,
-                          ),
-                          timesIndicatorsParam: TimesIndicatorsParam(
-                            timesIndicatorsWidth: 40,
-                          ),
-                          dayParam: DayParam(
-                            dayColor: Colors.grey[100],
-                            dayEventBuilder:
-                                (event, height, width, heightPerMinute) {
-                                  return DraggableEventWidget(
-                                    event: event,
-                                    height: height,
-                                    width: width,
-                                    onDragEnd:
-                                        (
-                                          columnIndex,
-                                          exactStartDateTime,
-                                          exactEndDateTime,
-                                          roundStartDateTime,
-                                          roundEndDateTime,
-                                        ) => print(roundStartDateTime),
-                                    child: DefaultDayEvent(
-                                      height: height,
-                                      width: width,
-                                      title: event.title ?? '',
-                                      description: event.description ?? '',
-                                      descriptionFontSize: 8,
-                                      onTap: () async {
-                                        final schedule =
-                                            event.data as Map<String, dynamic>;
-
-                                        final modal =
-                                            await CrudScheduling.modalMod1(
-                                              context,
-                                              event.eventType,
-                                              schedule['client'],
-                                              schedule['scheduled_date']
-                                                  .toString(),
-                                              schedule['id'].toString(),
-                                              schedule['total_amount']
-                                                  .toString(),
-                                            );
-
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => modal,
-                                        ).then((_) {
-                                          _listScheduleds();
-                                        });
-                                      },
-                                    ),
-                                  );
-                                },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        if (typeUI == 1)
+          Positioned(
+            bottom: 16.0,
+            right: 16.0,
+            child: Container(
+              width: 70,
+              decoration: BoxDecoration(
+                boxShadow: [
+                  BoxShadow(
+                    color: ColorsApp.secondaryColor.withOpacity(0.5),
+                    blurRadius: 20,
+                    offset: Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: FloatingActionButton(
+                clipBehavior: Clip.none,
+                mini: true,
+                elevation: 0,
+                backgroundColor: ColorsApp.secondaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                onPressed: () {
+                  final now = DateTime.now();
+                  if (selectedDay == null) {
+                    // Se estiver na visualização mensal (EventsMonths), faz scroll para o mês atual
+                    _monthsKey.currentState?.jumpToDate(now);
+                  } else {
+                    // Se estiver no planejador diário (EventsPlanner), atualiza o estado e navega para hoje
+                    setState(() {
+                      selectedDay = now;
+                    });
+                    _plannerKey.currentState?.jumpToDate(now);
+                  }
+                },
+                child: Text(
+                  'Hoje',
+                  style: TextStyle(color: ColorsApp.primaryColor),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

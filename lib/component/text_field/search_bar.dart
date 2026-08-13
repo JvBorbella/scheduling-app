@@ -3,7 +3,8 @@ import 'package:scheduling/style/color.dart';
 
 class SearchBarDefault extends StatefulWidget {
   final String? hintText;
-  const SearchBarDefault({super.key, this.hintText});
+  final VoidCallback? onPressed;
+  const SearchBarDefault({super.key, this.hintText, this.onPressed});
 
   @override
   State<SearchBarDefault> createState() => _SearchBarDefaultState();
@@ -19,7 +20,7 @@ class _SearchBarDefaultState extends State<SearchBarDefault> {
       leading: Icon(Icons.search, color: ColorsApp.secondaryColor),
       trailing: [
         IconButton(
-          onPressed: null,
+          onPressed: widget.onPressed,
           icon: Icon(Icons.filter_list_alt, color: ColorsApp.secondaryColor),
         ),
       ],

@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/button/switch_button.dart';
 import 'package:scheduling/component/modal/modal_mod1.dart';
+import 'package:scheduling/component/return/messenge.dart';
 import 'package:scheduling/component/text_field/text_field_mod1.dart';
 import 'package:scheduling/main.dart';
 import 'package:scheduling/mask/cnpj.dart';
@@ -239,18 +240,18 @@ class _LoginState extends State<Login> {
                             .onError((error, stackTrace) {
                               if (_userController.text.isEmpty ||
                                   _passwordController.text.isEmpty) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text("Preencha todos os campos"),
-                                    backgroundColor: Colors.red,
-                                  ),
+                                Message.showReturnOverlay(
+                                  context,
+                                  Colors.red,
+                                  Icons.error,
+                                  "Preencha todos os campos",
                                 );
                               } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(error.toString()),
-                                    backgroundColor: Colors.red,
-                                  ),
+                                Message.showReturnOverlay(
+                                  context,
+                                  Colors.red,
+                                  Icons.error,
+                                  error.toString(),
                                 );
                               }
                             }),

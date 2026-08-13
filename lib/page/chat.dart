@@ -319,7 +319,8 @@ class _ChatState extends State<Chat> {
       final response = await http.post(
         Uri.parse('$baseUrl${Endpoints.list}'),
         headers: {
-          'Authorization': 'Bearer ${prefs.getString('access_token')}',
+          'Authorization':
+              'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
           'Content-Type': 'application/json',
           'X-TENANT-ID': "${prefs.getString("tenant_id")}",
         },

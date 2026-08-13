@@ -1,8 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
-
-import 'package:all_validations_br/all_validations_br.dart';
-import 'package:brasil_fields/brasil_fields.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -10,23 +6,20 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_expanded_tile/flutter_expanded_tile.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:omni_datetime_picker/omni_datetime_picker.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/button/text_icon_button.dart';
 import 'package:scheduling/component/card/card_list.dart';
 import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod2.dart';
 import 'package:scheduling/component/text_field/text_field_mod1.dart';
-import 'package:scheduling/mask/cnpj.dart';
 import 'package:scheduling/modals_crud/crud_customer.dart';
+import 'package:scheduling/modals_crud/crud_product.dart';
 import 'package:scheduling/modals_crud/crud_scheduling.dart';
 import 'package:scheduling/modals_crud/crud_services.dart';
 import 'package:scheduling/page/admin.dart';
+import 'package:scheduling/page/search_agent.dart';
 import 'package:scheduling/page/users.dart';
-import 'package:scheduling/requests/company.dart';
-import 'package:scheduling/requests/customers.dart';
 import 'package:scheduling/requests/endpoints.dart';
-import 'package:scheduling/requests/payment.dart';
 import 'package:scheduling/page/client.dart';
 import 'package:scheduling/page/login.dart';
 import 'package:scheduling/page/messenge.dart';
@@ -36,7 +29,8 @@ import 'package:scheduling/style/color.dart';
 import 'package:searchfield/searchfield.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
+
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -144,7 +138,8 @@ class _AppState extends State<App> {
     await dotenv.load(fileName: ".env");
     final baseUrl = dotenv.env['BASE_URL']!;
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString("access_token") ?? "";
+    final token =
+        prefs.getString("access_token") ?? prefs.getString("refresh_token");
 
     try {
       final response = await http.post(
@@ -262,10 +257,25 @@ class _AppState extends State<App> {
               builder: (context) => ModalMod1(
                 title: 'Sair do aplicativo?',
                 textButton: 'Sair',
-                onPressed: () => Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => Login()),
-                ),
+                onPressed: () async {
+                  final baseUrl = dotenv.env['BASE_URL']!;
+                  final prefs = await SharedPreferences.getInstance();
+                  await http.post(
+                    Uri.parse('$baseUrl${Endpoints.logout}'),
+                    headers: {
+                      "Authorization":
+                          "Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}",
+                      "X-Tenant-ID": "${prefs.getString("tenant_id")}",
+                      "Content-Type": "application/json",
+                    },
+                  );
+                  prefs.remove("access_token");
+                  prefs.remove("refresh_token");
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => Login()),
+                  );
+                },
               ),
             ),
             icon: Icon(Icons.logout_outlined),
@@ -451,10 +461,17 @@ class _AppState extends State<App> {
             ? CrudCustomer.modalMod1(
                 context,
                 '',
-                nameController,
-                cpfController,
-                emailController,
-                phoneController,
+                TextEditingController(),
+                TextEditingController(),
+                TextEditingController(),
+                TextEditingController(),
+                TextEditingController(),
+                TextEditingController(),
+                TextEditingController(),
+                TextEditingController(),
+                TextEditingController(),
+                TextEditingController(),
+                TextEditingController(),
               )
             : ModalMod1(
                 title: _selectedIndex == 0 ? 'Confirmar Agendamento' : null,
@@ -476,7 +493,9 @@ class _AppState extends State<App> {
                     : null,
               ),
       ),
-    );
+    ).then((_) {
+      getClients(context);
+    });
   }
 
   // Simplifica a lógica de definição do título
@@ -509,6 +528,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Agendamentos',
       locale: const Locale('pt', 'BR'),
       supportedLocales: const [Locale('pt', 'BR')],
@@ -542,6 +562,7 @@ class DrawerTab extends StatefulWidget {
 
 class _DrawerTabState extends State<DrawerTab> {
   List<dynamic> services = [];
+  List<dynamic> products = [];
   final TextEditingController _nameServiceController = TextEditingController();
   final TextEditingController _descripTionServiceController =
       TextEditingController();
@@ -555,6 +576,12 @@ class _DrawerTabState extends State<DrawerTab> {
     super.dispose();
   }
 
+  SharedPreferences? prefs;
+
+  Future<void> getPrefs() async {
+    prefs = await SharedPreferences.getInstance();
+  }
+
   Future<Map<String, dynamic>> getProducts() async {
     final prefs = await SharedPreferences.getInstance();
     await dotenv.load(fileName: ".env");
@@ -563,7 +590,8 @@ class _DrawerTabState extends State<DrawerTab> {
     final response = await http.post(
       Uri.parse(baseUrl + Endpoints.list),
       headers: {
-        'Authorization': 'Bearer ${prefs.getString('access_token')}',
+        'Authorization':
+            'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
         'Content-Type': 'application/json',
         'X-TENANT-ID': '${prefs.getString('empresa_id')}',
       },
@@ -576,12 +604,36 @@ class _DrawerTabState extends State<DrawerTab> {
     return jsonDecode(response.body);
   }
 
+  Future<Map<String, dynamic>> getServices() async {
+    final prefs = await SharedPreferences.getInstance();
+    await dotenv.load(fileName: ".env");
+    final baseUrl = dotenv.env['BASE_URL']!;
+
+    final response = await http.post(
+      Uri.parse(baseUrl + Endpoints.list),
+      headers: {
+        'Authorization':
+            'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
+        'Content-Type': 'application/json',
+        'X-TENANT-ID': '${prefs.getString('empresa_id')}',
+      },
+      body: jsonEncode({
+        "q":
+            "SELECT * FROM services WHERE tenant_id = '${prefs.getString('tenant_id')}' AND COALESCE(is_deleted,0) <> 1",
+      }),
+    );
+
+    return jsonDecode(response.body);
+  }
+
   //late Future<Map<String, dynamic>> _futureProducts;
 
   @override
   void initState() {
     super.initState();
+    getServices();
     getProducts();
+    getPrefs();
   }
 
   @override
@@ -689,6 +741,7 @@ class _DrawerTabState extends State<DrawerTab> {
               ),
             ),
             SizedBox(height: 20),
+            //if (prefs?.getInt('is_admin') == 1)
             ListTile(
               onTap: () {
                 Navigator.pop(context); // Fechar o drawer
@@ -715,62 +768,30 @@ class _DrawerTabState extends State<DrawerTab> {
               ),
             ),
             SizedBox(height: 10),
-            ExpandedTile(
+            ListTile(
+              onTap: () {
+                Navigator.pop(context); // Fechar o drawer
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SearchAgent()),
+                );
+              },
               trailing: Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 15,
                 color: ColorsApp.secondaryColor,
               ),
-              theme: ExpandedTileThemeData(
-                trailingPadding: EdgeInsets.all(5),
-                headerColor: Colors.transparent, // Cabeçalho branco
-                contentBackgroundColor:
-                    ColorsApp.primaryColor, // Fundo do conteúdo cinza claro
-                // Remove o preenchimento padrão para os Dividers encostarem nas bordas laterais
-                contentPadding: EdgeInsets.zero,
-                headerPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-
-                // 1. Quando FECHADO: Totalmente arredondado
-                headerBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                    color: ColorsApp.secondaryColor,
-                    width: 1,
-                  ),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-
-                // 2. Quando ABERTO: Arredondado apenas em cima, reto embaixo
-                fullExpandedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(
-                    color: ColorsApp.secondaryColor,
-                    width: 1,
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(10),
-                    topRight: Radius.circular(10),
-                    bottomLeft: Radius.zero,
-                    bottomRight: Radius.zero,
-                  ),
-                ),
-
-                // Remove a borda interna nativa para não duplicar com a de cima
-                contentBorder: const OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.transparent),
-                ),
-              ),
-              controller: ExpandedTileController(),
               title: Text(
-                "Relatórios",
+                'Relatórios',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   color: ColorsApp.secondaryColor,
-                  fontSize: 16,
                 ),
               ),
-              content: Column(mainAxisSize: MainAxisSize.min, children: []),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: ColorsApp.secondaryColor, width: 1),
+              ),
             ),
             SizedBox(height: 10),
             ExpandedTile(
@@ -799,6 +820,8 @@ class _DrawerTabState extends State<DrawerTab> {
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
+                titlePadding: EdgeInsets.all(2),
+                contentSeparatorColor: ColorsApp.primaryColor,
 
                 // 2. Quando ABERTO: Arredondado apenas em cima, reto embaixo
                 fullExpandedBorder: OutlineInputBorder(
@@ -850,7 +873,230 @@ class _DrawerTabState extends State<DrawerTab> {
                       vertical: 4,
                     ),
                     onTap: () {
-                      CrudServices.modal1(context, '', '', '', 0);
+                      showDialog(
+                        context: context,
+                        builder: (context) => StatefulBuilder(
+                          builder: (context, setState) {
+                            return CrudServices.modal1(context, '', '', '', 0);
+                          },
+                        ),
+                      );
+                    },
+                  ),
+
+                  // Linha divisória entre os itens internos
+                  const Divider(color: Colors.grey, height: 1, thickness: 1),
+
+                  // Segundo Item (Consulta de preço)
+                  ListTile(
+                    title: Text(
+                      "Cadastrados",
+                      style: TextStyle(
+                        color: ColorsApp.secondaryColor,
+                        fontSize: 15,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    onTap: () async {
+                      var productData = await getProducts();
+                      var serviceData = await getServices();
+
+                      showDialog(
+                        context: context,
+                        builder: (BuildContext context) => StatefulBuilder(
+                          builder: (BuildContext context, StateSetter setState) {
+                            return ModalMod2(
+                              title: "Serviços cadastrados",
+                              content: SizedBox(
+                                width: double.maxFinite,
+                                child: Column(
+                                  spacing: 10,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: serviceData['results'].length,
+                                      itemBuilder: (BuildContext context, int index) {
+                                        var service =
+                                            serviceData['results'][index];
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 10,
+                                          ),
+                                          child: CardList(
+                                            title: service['name'],
+                                            text:
+                                                'Descrição: ${service['description']}\nPreço: ${service['price']}',
+                                            iconButton: IconButton(
+                                              onPressed: () =>
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (context) =>
+                                                        CrudServices.modal1(
+                                                          context,
+                                                          service['id'],
+                                                          service['name'],
+                                                          service['description'],
+                                                          double.parse(
+                                                            service['price'],
+                                                          ),
+                                                        ),
+                                                  ).then((_) async {
+                                                    serviceData =
+                                                        await getProducts();
+                                                    setState(() {});
+                                                  }),
+                                              icon: Icon(
+                                                Icons.edit,
+                                                color: ColorsApp.secondaryColor,
+                                              ),
+                                            ),
+                                            textInfo:
+                                                'Cód: ${service['code'].toString()}',
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    TextIconButtonMod1(
+                                      text: "Enviar catálogo por WhatsApp",
+                                      icon: Symbols.forward,
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => App(
+                                              selectedIndex: 3,
+                                              child: MessengeList(
+                                                initialText:
+                                                    "Catálogo de Serviços:\n\n" +
+                                                    (serviceData['results']
+                                                            as List)
+                                                        .map(
+                                                          (s) =>
+                                                              "${s['name']} - R\$${s['price']}",
+                                                        )
+                                                        .join("\n"),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      color: ColorsApp.secondaryColor,
+                                      colorLabel: ColorsApp.secondaryColor,
+                                      width: double.maxFinite,
+                                    ),
+                                    ButtonMod1(
+                                      onPressed: () {
+                                        Navigator.of(context).pop();
+                                      },
+                                      text: "Fechar",
+                                      colorLabel: Colors.white,
+                                      color: Colors.red,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(height: 10),
+            ExpandedTile(
+              trailing: Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 15,
+                color: ColorsApp.secondaryColor,
+              ),
+              theme: ExpandedTileThemeData(
+                trailingPadding: EdgeInsets.all(5),
+                headerColor: Colors.transparent, // Cabeçalho branco,
+                contentBackgroundColor:
+                    ColorsApp.primaryColor, // Fundo do conteúdo cinza claro
+                // Remove o preenchimento padrão para os Dividers encostarem nas bordas laterais
+                contentPadding: EdgeInsets.zero,
+                headerPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+
+                contentSeparatorColor: ColorsApp.primaryColor,
+
+                // 1. Quando FECHADO: Totalmente arredondado
+                headerBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: ColorsApp.secondaryColor,
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                titlePadding: EdgeInsets.all(2),
+
+                // 2. Quando ABERTO: Arredondado apenas em cima, reto embaixo
+                fullExpandedBorder: OutlineInputBorder(
+                  borderSide: BorderSide(
+                    color: ColorsApp.secondaryColor,
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(10),
+                    topRight: Radius.circular(10),
+                    bottomLeft: Radius.zero,
+                    bottomRight: Radius.zero,
+                  ),
+                ),
+
+                // Remove a borda interna nativa para não duplicar com a de cima
+                contentBorder: const OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.transparent),
+                ),
+              ),
+              controller: ExpandedTileController(),
+              title: Text(
+                "Insumos",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: ColorsApp.secondaryColor,
+                  fontSize: 16,
+                ),
+              ),
+
+              // Conteúdo com múltiplos Containers/Itens separados por linhas
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Linha divisória entre o título e o primeiro item
+                  const Divider(color: Colors.grey, height: 1, thickness: 1),
+
+                  // Primeiro Item (Cadastro)
+                  ListTile(
+                    title: Text(
+                      "Cadastrar Novo",
+                      style: TextStyle(
+                        color: ColorsApp.secondaryColor,
+                        fontSize: 15,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => StatefulBuilder(
+                          builder: (context, setState) {
+                            return CrudProduct.modal1(context, '', '', '', 0);
+                          },
+                        ),
+                      );
                     },
                   ),
 
@@ -906,7 +1152,7 @@ class _DrawerTabState extends State<DrawerTab> {
                                                     builder: (context) =>
                                                         CrudServices.modal1(
                                                           context,
-                                                          product['id'],
+                                                          product['id_products'],
                                                           product['name'],
                                                           product['description'],
                                                           double.parse(
@@ -940,7 +1186,7 @@ class _DrawerTabState extends State<DrawerTab> {
                                               selectedIndex: 3,
                                               child: MessengeList(
                                                 initialText:
-                                                    "Catálogo de Serviços/Produtos:\n\n" +
+                                                    "Catálogo de Produtos:\n\n" +
                                                     (productData['results']
                                                             as List)
                                                         .map(

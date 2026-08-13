@@ -28,7 +28,11 @@ class _ModalMod1State extends State<ModalMod1> {
       title: widget.title != null
           ? Text(
               widget.title ?? '',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: ColorsApp.secondaryColor,
+              ),
               textAlign: TextAlign.center,
             )
           : null,
@@ -44,7 +48,7 @@ class _ModalMod1State extends State<ModalMod1> {
         ButtonMod1(
           text: 'Fechar',
           color: Colors.red,
-          colorLabel: ColorsApp.primaryColor,
+          colorLabel: Colors.white,
           onPressed: () => Navigator.of(context).pop(),
         ),
       ],

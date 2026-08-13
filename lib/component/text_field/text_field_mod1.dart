@@ -12,6 +12,7 @@ class TextFieldMod1 extends StatefulWidget {
   final List<TextInputFormatter>? inputFormatters;
   final Function(String)? onChanged;
   final TextInputType? keyboardType;
+  final String? Function(String?)? validator;
   const TextFieldMod1({
     super.key,
     this.labelText,
@@ -25,6 +26,7 @@ class TextFieldMod1 extends StatefulWidget {
     this.inputFormatters,
     this.onChanged,
     this.keyboardType,
+    this.validator,
   });
 
   @override
@@ -47,6 +49,8 @@ class _TextFieldMod1State extends State<TextFieldMod1> {
           onChanged: widget.onChanged,
           keyboardType: widget.keyboardType,
           style: TextStyle(color: ColorsApp.secondaryColor),
+          validator: widget.validator,
+          cursorColor: ColorsApp.secondaryColor,
           decoration: InputDecoration(
             labelText: widget.labelText,
             labelStyle: TextStyle(color: Colors.grey, fontSize: 10),

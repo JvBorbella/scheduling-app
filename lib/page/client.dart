@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:all_validations_br/all_validations_br.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:scheduling/component/card/card_list.dart';
@@ -26,6 +27,13 @@ class _ClientListState extends State<ClientList> {
   TextEditingController cpfController = TextEditingController();
   TextEditingController emailController = TextEditingController();
   TextEditingController phoneController = TextEditingController();
+  TextEditingController cepController = TextEditingController();
+  TextEditingController streetController = TextEditingController();
+  TextEditingController neighborhoodController = TextEditingController();
+  TextEditingController numberController = TextEditingController();
+  TextEditingController complementController = TextEditingController();
+  TextEditingController cityController = TextEditingController();
+  TextEditingController stateController = TextEditingController();
 
   @override
   void initState() {
@@ -61,10 +69,19 @@ class _ClientListState extends State<ClientList> {
                         builder: (context) => CrudCustomer.modalMod1(
                           context,
                           customer['id'],
-                          nameController..text = customer['name'],
-                          cpfController..text = customer['cpf'],
-                          emailController..text = customer['email'],
-                          phoneController..text = customer['phone'],
+                          nameController..text = customer['name'] ?? '',
+                          cpfController..text = customer['cpf'] ?? '',
+                          emailController..text = customer['email'] ?? '',
+                          phoneController..text = customer['phone'] ?? '',
+                          cepController..text = customer['zip_code'] ?? '',
+                          streetController..text = customer['street'] ?? '',
+                          neighborhoodController
+                            ..text = customer['neighborhood'] ?? '',
+                          numberController..text = customer['number'] ?? '',
+                          complementController
+                            ..text = customer['complement'] ?? '',
+                          cityController..text = customer['city'] ?? '',
+                          stateController..text = customer['state'] ?? '',
                         ),
                       ),
                       icon: Icon(Icons.edit),
@@ -90,6 +107,13 @@ class _ClientListState extends State<ClientList> {
         cpfController..text = customers[0]['cpf'],
         emailController..text = customers[0]['email'],
         phoneController..text = customers[0]['phone'],
+        cepController..text = customers[0]['zip_code'],
+        streetController..text = customers[0]['street'],
+        neighborhoodController..text = customers[0]['neighborhood'],
+        numberController..text = customers[0]['number'],
+        complementController..text = customers[0]['complement'],
+        cityController..text = customers[0]['city'],
+        stateController..text = customers[0]['state'],
       ),
       // ModalMod1(
       //   content: Column(
