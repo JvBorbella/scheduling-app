@@ -2,7 +2,7 @@ name: scheduling
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.11+1
 
 environment:
   sdk: ^3.11.5
@@ -33,6 +33,8 @@ dependencies:
   pdf: ^3.11.3
   printing: ^5.14.2
   file_saver: ^0.4.0
+  package_info_plus: ^10.2.1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

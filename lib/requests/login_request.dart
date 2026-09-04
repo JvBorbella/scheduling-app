@@ -18,34 +18,61 @@ class LoginRequest {
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
+      log(data['avatar_url']);
       await SharedPreferences.getInstance().then((prefs) {
         prefs.setString("access_token", data["access_token"]);
         prefs.setString("refresh_token", data["refresh_token"]);
         prefs.setString("empresa_id", data["empresa_id"]);
         prefs.setString("usuario_id", data["usuario_id"]);
         prefs.setString("nome_usuario", data["nome"]);
+        prefs.setString("avatar_url", data['avatar_url']);
+        prefs.setString(
+          "client_key",
+          data["servicos_contratados"][0]["license"]["client_key"],
+        );
+        prefs.setString(
+          "expires_at",
+          data["servicos_contratados"][0]["license"]["expires_at"],
+        );
+        prefs.setString(
+          "plan",
+          data["servicos_contratados"][0]["license"]["plan"],
+        );
+        prefs.setInt(
+          "is_active",
+          data["servicos_contratados"][0]["license"]["is_active"],
+        );
         //prefs.setInt("is_admin", data["is_admin"]);
       });
       var responseData = await http.post(
         Uri.parse(baseUrl + Endpoints.list),
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer ${data["access_token"]}",
-          "X-Tenant-ID": "${data["empresa_id"]}",
+        "Content-Type": "application/json",
+        "Authorization": "Bearer ${data["access_token"]}",
+        "X-Tenant-ID": "${data["empresa_id"]}",
         },
         body: jsonEncode({
-          "q":
-              "SELECT t.id_tenants, l.client_key, c.id_companies as company_id, c.name AS company_name FROM tenants t INNER JOIN licenses l ON t.id_tenants = l.tenant_id INNER JOIN companies c ON t.id_tenants = c.tenant_id WHERE t.id_tenants = '${data["empresa_id"]}'",
+        "q":
+            "SELECT c.tenant_id, c.companies_id as company_id, c.name AS company_name, p.cpf_cnpj AS cnpj FROM companies c INNER JOIN persons p ON p.persons_id = c.person_id WHERE c.tenant_id = '${data["empresa_id"]}'",
         }),
       );
       final Map<String, dynamic> dataResponse = json.decode(responseData.body);
       await SharedPreferences.getInstance().then((prefs) {
-        prefs.setString("client_key", dataResponse['results'][0]["client_key"]);
-        prefs.setString("tenant_id", dataResponse['results'][0]["id_tenants"]);
-        prefs.setString("company_id", dataResponse['results'][0]["company_id"]);
+        prefs.setString(
+          "tenant_id",
+          dataResponse['results'][0]["tenant_id"] ?? '',
+        );
+        prefs.setString(
+          "company_id",
+          dataResponse['results'][0]["company_id"] ?? '',
+        );
         prefs.setString(
           "company_name",
-          dataResponse['results'][0]["company_name"],
+          dataResponse['results'][0]["company_name"] ?? '',
+        );
+        prefs.setString(
+          "cnpjCompany",
+          dataResponse['results'][0]["cnpj"] ?? '',
         );
       });
       TokenExpiryManager.startExpiryTimer(

@@ -1,19 +1,16 @@
 import 'dart:convert';
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:infinite_calendar_view/infinite_calendar_view.dart';
 import 'package:intl/intl.dart';
 import 'package:omni_datetime_picker/omni_datetime_picker.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/card/card_list.dart';
 import 'package:scheduling/component/modal/modal_mod1.dart';
-import 'package:scheduling/component/modal/modal_mod2.dart';
 import 'package:scheduling/component/return/messenge.dart';
 import 'package:scheduling/component/text_field/search_bar.dart';
 import 'package:scheduling/component/text_field/text_field_mod1.dart';
+import 'package:scheduling/function/search_function.dart';
 import 'package:scheduling/modals_crud/crud_scheduling.dart';
 import 'package:scheduling/requests/endpoints.dart';
 import 'package:scheduling/style/color.dart';
@@ -71,6 +68,7 @@ class _ShedulingsState extends State<Shedulings> {
   TextEditingController customerController = TextEditingController();
   TextEditingController serviceController = TextEditingController();
   TextEditingController _descriptionController = TextEditingController();
+  TextEditingController searchController = TextEditingController();
 
   Future<void> _listScheduleds() async {
     final prefs = await SharedPreferences.getInstance();
@@ -88,7 +86,7 @@ class _ShedulingsState extends State<Shedulings> {
         },
         body: jsonEncode({
           "q":
-              "SELECT o.id_orders, o.tenant_id, o.company_id, o.code, o.created_at AS scheduled_date, o.total_amount, p.name AS client, p.cpf, p.cnpj FROM orders o LEFT JOIN persons p ON p.id_persons = o.customer_id WHERE o.tenant_id = '${prefs.getString('tenant_id')}'",
+              "SELECT s.schedulings_id, s.tenant_id, s.code, s.created_at AS scheduled_date, s.total_amount, s.customer_id, p.name AS client, p.cpf_cnpj FROM schedulings s LEFT JOIN persons p ON p.persons_id = s.customer_id WHERE s.tenant_id = '${prefs.getString('tenant_id')}'",
         }),
       );
       if (response.statusCode == 200) {
@@ -126,11 +124,11 @@ class _ShedulingsState extends State<Shedulings> {
         headers: {
           'Authorization': 'Bearer $token',
           'Content-Type': 'application/json',
-          'X-TENANT-ID': '4368297b-944d-4bc5-827c-333cfdf012f9',
+          'X-TENANT-ID': '${prefs.getString('tenant_id')}',
         },
         body: jsonEncode({
           "q":
-              "SELECT oi.id_order_items, oi.product_id, oi.code, oi.product_name, oi.quantity, oi.unit_price, oi.order_id FROM order_items oi",
+              "SELECT ss.scheduling_services_id, ss.service_id, ss.code, s.name, ss.quantity, ss.unit_price, ss.scheduling_id FROM scheduling_services ss INNER JOIN services s ON ss.service_id = s.services_id WHERE ss.is_deleted <> 1 AND ss.tenant_id = '${prefs.getString('tenant_id')}'",
         }),
       );
       if (response.statusCode == 200) {
@@ -162,6 +160,7 @@ class _ShedulingsState extends State<Shedulings> {
     super.initState();
     getPrefs();
     _listScheduleds();
+    _listOrderItems();
   }
 
   String _formatDate(dynamic dateValue) {
@@ -219,8 +218,8 @@ class _ShedulingsState extends State<Shedulings> {
         final schedule = scheduleds[i];
 
         final services = orderItems
-            .where((item) => item['order_id'] == schedule['id'])
-            .map((item) => item['product_name'])
+            .where((item) => item['scheduling_id'] == schedule['schedulings_id'])
+            .map((item) => item['name'])
             .join(', ');
 
         final dateStr = schedule['scheduled_date'];
@@ -239,8 +238,6 @@ class _ShedulingsState extends State<Shedulings> {
           start = DateTime.parse(dateStr).toLocal();
         }
 
-        //final start = schedule['scheduled_date'];
-
         data.addEvents([
           Event(
             title: schedule['client'] ?? '',
@@ -249,7 +246,7 @@ class _ShedulingsState extends State<Shedulings> {
             endTime: start.add(const Duration(hours: 1)),
             data: schedule,
             eventType: orderItems
-                .where((item) => item['order_id'] == schedule['id'])
+                .where((item) => item['scheduling_id'] == schedule['schedulings_id'])
                 .toList(),
           ),
         ]);
@@ -270,7 +267,12 @@ class _ShedulingsState extends State<Shedulings> {
             children: [
               SearchBarDefault(
                 hintText: 'agendamento',
-                onPressed: () async {
+                controller: searchController,
+                onPressedSearch: () async {
+                  scheduleds = await search(searchController.text, scheduleds);
+                  setState(() {});
+                },
+                onPressedFilter: () async {
                   if (typeUI == 1) {
                     DateTime? picked = await showOmniDateTimePicker(
                       context: context,
@@ -384,7 +386,7 @@ class _ShedulingsState extends State<Shedulings> {
                                     },
                                     body: jsonEncode({
                                       "q":
-                                          "SELECT o.id_orders, o.tenant_id, o.company_id, o.code, o.created_at AS scheduled_date, o.total_amount, p.name AS client, p.cpf, p.cnpj FROM orders o LEFT JOIN persons p ON p.id_persons = o.customer_id WHERE o.tenant_id = '${prefs.getString('tenant_id')}' AND o.scheduled_date BETWEEN '${DateFormat('yyyy-MM-dd HH:mm').format(selectedRange!.first)}' AND '${DateFormat('yyyy-MM-dd HH:mm').format(selectedRange!.last)}' AND o.status = '${'pending'}' AND (p.name LIKE '%${customerController.text}%' OR p.cpf LIKE '%${customerController.text}%' OR p.cnpj LIKE '%${customerController.text}%' OR p.email LIKE '%${customerController.text}%' OR p.phone LIKE '%${customerController.text}%')",
+                                          "SELECT o.orders_id, o.tenant_id, o.company_id, o.code, o.created_at AS scheduled_date, o.total_amount, p.name AS client, p.cpf_cnpj FROM orders o LEFT JOIN persons p ON p.persons_id = o.customer_id WHERE o.tenant_id = '${prefs.getString('tenant_id')}' AND o.scheduled_date BETWEEN '${DateFormat('yyyy-MM-dd HH:mm').format(selectedRange!.first)}' AND '${DateFormat('yyyy-MM-dd HH:mm').format(selectedRange!.last)}' AND o.status = '${'pending'}' AND (p.name LIKE '%${customerController.text}%' OR p.cpf_cnpj LIKE '%${customerController.text}%' OR p.email LIKE '%${customerController.text}%' OR p.phone LIKE '%${customerController.text}%')",
                                     }),
                                   );
                                   if (response.statusCode == 200) {
@@ -423,7 +425,8 @@ class _ShedulingsState extends State<Shedulings> {
                 },
               ),
               ButtonMod1(
-                onPressed: () {
+                onPressed: () async {
+                  await prefs?.setInt('typeUI', typeUI == 0 ? 1 : 0);
                   setState(() {
                     typeUI = typeUI == 0 ? 1 : 0;
                   });
@@ -449,7 +452,7 @@ class _ShedulingsState extends State<Shedulings> {
                                 scheduleds[index]['scheduled_date'],
                               ),
                               text:
-                                  'Serviço(s): ${orderItems.where((item) => item['order_id'] == scheduleds[index]['id']).map((item) => item['product_name']).join(', ')}\nValor: R\$ ${scheduleds[index]['total_amount'].toString()}\nCliente: ${scheduleds[index]['client']}',
+                                  'Serviço(s): ${orderItems.where((item) => item['order_id'] == scheduleds[index]['orders_id']).map((item) => item['product_name']).join(', ')}\nValor: R\$ ${scheduleds[index]['total_amount'].toString()}\nCliente: ${scheduleds[index]['client']}',
                               textInfo:
                                   'Cód: ${scheduleds[index]['code'].toString()}',
                               iconButton: IconButton(
@@ -475,6 +478,7 @@ class _ShedulingsState extends State<Shedulings> {
                                   builder: (context) => ModalMod1(
                                     title: 'Finalizar agendamento',
                                     content: Column(
+                                      spacing: 10.0,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Row(
@@ -490,7 +494,7 @@ class _ShedulingsState extends State<Shedulings> {
                                                   .where(
                                                     (item) =>
                                                         item['order_id'] ==
-                                                        scheduleds[index]['id'],
+                                                        scheduleds[index]['orders_id'],
                                                   )
                                                   .map(
                                                     (item) =>
@@ -560,7 +564,52 @@ class _ShedulingsState extends State<Shedulings> {
                                         ),
                                       ],
                                     ),
-                                    onPressed: () async {},
+                                    onPressed: () async {
+                                      final baseUrl = dotenv.env['BASE_URL']!;
+                                      final token =
+                                          prefs?.getString("access_token") ??
+                                          prefs?.getString("refresh_token");
+                                      try {
+                                        final response = await http.post(
+                                          Uri.parse(baseUrl + Endpoints.edit),
+                                          headers: {
+                                            'Authorization': 'Bearer $token',
+                                            'Content-Type': 'application/json',
+                                            'X-TENANT-ID':
+                                                '${prefs?.getString('tenant_id')}',
+                                          },
+                                          body: jsonEncode({
+                                            "tabela": "orders",
+                                            "id":
+                                                scheduleds[index]['orders_id'],
+                                            "values": {"status": 'aproved'},
+                                          }),
+                                        );
+                                        if (response.statusCode == 200) {
+                                          Message.showReturnOverlay(
+                                            context,
+                                            Colors.green,
+                                            Icons.check,
+                                            'Agendamento finalizado com sucesso!',
+                                          );
+                                          _listScheduleds();
+                                        } else {
+                                          Message.showReturnOverlay(
+                                            context,
+                                            Colors.red,
+                                            Icons.error,
+                                            response.body.toString(),
+                                          );
+                                        }
+                                      } catch (e) {
+                                        Message.showReturnOverlay(
+                                          context,
+                                          Colors.red,
+                                          Icons.error,
+                                          e.toString(),
+                                        );
+                                      }
+                                    },
                                     textButton: 'Finalizar agendamento',
                                   ),
                                 );
@@ -570,7 +619,7 @@ class _ShedulingsState extends State<Shedulings> {
                                     .where(
                                       (item) =>
                                           item['order_id'] ==
-                                          scheduleds[index]['id'],
+                                          scheduleds[index]['orders_id'],
                                     )
                                     .map((item) => item['product_name'])
                                     .join(', ');
@@ -581,7 +630,7 @@ class _ShedulingsState extends State<Shedulings> {
                                     );
                                 data['service_name'] = serviceName;
                                 data['scheduled_date'] =
-                                    scheduleds[index]['scheduled_date']; // manda formatado
+                                    scheduleds[index]['scheduled_date']; // manda formatado);
 
                                 final modal = await CrudScheduling.modalMod1(
                                   context,
@@ -589,12 +638,13 @@ class _ShedulingsState extends State<Shedulings> {
                                       .where(
                                         (item) =>
                                             item['order_id'] ==
-                                            scheduleds[index]['id_orders'],
+                                            scheduleds[index]['orders_id'],
                                       )
                                       .toList(),
                                   data['client'],
+                                  data['customer_id'],
                                   scheduleds[index]['scheduled_date'],
-                                  data['id_orders'],
+                                  data['orders_id'],
                                   data['total_amount'],
                                 );
                                 showDialog(
@@ -722,6 +772,7 @@ class _ShedulingsState extends State<Shedulings> {
                                             roundDateTime.toString(),
                                             '',
                                             '',
+                                            '',
                                           );
 
                                       showDialog(
@@ -763,9 +814,11 @@ class _ShedulingsState extends State<Shedulings> {
                                                   context,
                                                   event.eventType,
                                                   schedule['client'],
+                                                  schedule['customer_id'],
                                                   schedule['scheduled_date']
                                                       .toString(),
-                                                  schedule['id'].toString(),
+                                                  schedule['orders_id']
+                                                      .toString(),
                                                   schedule['total_amount']
                                                       .toString(),
                                                 );

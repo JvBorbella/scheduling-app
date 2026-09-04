@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
-import 'package:scheduling/main.dart';
 import 'package:scheduling/style/color.dart';
 
 class ModalMod1 extends StatefulWidget {

@@ -1,17 +1,11 @@
-import 'dart:convert';
-
-import 'package:all_validations_br/all_validations_br.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:scheduling/component/card/card_list.dart';
-import 'package:scheduling/component/modal/modal_mod1.dart';
+import 'package:scheduling/component/card/dynamic_card.dart';
 import 'package:scheduling/component/text_field/search_bar.dart';
-import 'package:scheduling/component/text_field/text_field_mod1.dart';
-import 'package:http/http.dart' as http;
+import 'package:scheduling/function/delete_function.dart';
+import 'package:scheduling/function/filter_function.dart';
 import 'package:scheduling/modals_crud/crud_customer.dart';
 import 'package:scheduling/requests/customers.dart';
-import 'package:scheduling/requests/endpoints.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class ClientList extends StatefulWidget {
   const ClientList({super.key});
@@ -35,11 +29,28 @@ class _ClientListState extends State<ClientList> {
   TextEditingController cityController = TextEditingController();
   TextEditingController stateController = TextEditingController();
 
+  TextEditingController searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     getClients();
   }
+
+  String normalizeString(String text) {
+    return text
+        .toLowerCase()
+        .trim()
+        .replaceAll(RegExp(r'[áàãâä]'), 'a')
+        .replaceAll(RegExp(r'[éèêë]'), 'e')
+        .replaceAll(RegExp(r'[íìîï]'), 'i')
+        .replaceAll(RegExp(r'[óòôõö]'), 'o')
+        .replaceAll(RegExp(r'[úùûü]'), 'u')
+        .replaceAll(RegExp(r'[ç]'), 'c')
+        .replaceAll(RegExp(r'[/]'), '');
+  }
+
+  List<dynamic> filteredData = [];
 
   @override
   Widget build(BuildContext context) {
@@ -47,49 +58,66 @@ class _ClientListState extends State<ClientList> {
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         children: [
-          SearchBarDefault(hintText: 'cliente'),
+          SearchBarDefault(
+            controller: searchController,
+            hintText: 'cliente',
+            onPressedSearch: () => search(searchController.text),
+            onPressedFilter: () => showDynamicFilterModal(
+                  context: context,
+                  table: 'persons',
+                  columns: customers[0]['metadata'],
+                ).then((value) {
+                  if (value != null) {
+                    setState(() {
+                      filteredData = value['results'];
+                    });
+                  }
+                }),
+          ),
           SizedBox(height: 20),
           Expanded(
-            child: ListView.builder(
-              itemCount: customers.length,
-              itemBuilder: (context, index) {
-                final customer = customers[index];
-                return Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 10,
-                  ), // Margem externa mantida aqui
-                  child: CardList(
-                    title: customer['name'],
-                    text:
-                        'Tel.: ${customer['phone']}\nE-mail: ${customer['email']}\nCPF/CNPJ: ${customer['cpf'] ?? customer['cnpj']} ',
-                    textInfo: 'Cód ${customer['code']}',
-                    iconButton: IconButton(
-                      onPressed: () => showDialog(
-                        context: context,
-                        builder: (context) => CrudCustomer.modalMod1(
-                          context,
-                          customer['id'],
-                          nameController..text = customer['name'] ?? '',
-                          cpfController..text = customer['cpf'] ?? '',
-                          emailController..text = customer['email'] ?? '',
-                          phoneController..text = customer['phone'] ?? '',
-                          cepController..text = customer['zip_code'] ?? '',
-                          streetController..text = customer['street'] ?? '',
-                          neighborhoodController
-                            ..text = customer['neighborhood'] ?? '',
-                          numberController..text = customer['number'] ?? '',
-                          complementController
-                            ..text = customer['complement'] ?? '',
-                          cityController..text = customer['city'] ?? '',
-                          stateController..text = customer['state'] ?? '',
+            child: RefreshIndicator(
+              onRefresh: () => getClients(),
+              strokeWidth: 2,
+              child: ListView.builder(
+                itemCount: filteredData.length,
+                itemBuilder: (context, index) {
+                  final customer = filteredData[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: DynamicCard(
+                      remove: false,
+                      colorRight: Colors.orange,
+                      colorLeft: Colors.red,
+                      child: CardList(
+                        title: customer['name'],
+                        text:
+                            'Tel.: ${customer['phone']}\nE-mail: ${customer['email']}\nCPF/CNPJ: ${customer['cpf'] ?? customer['cnpj']} ',
+                        textInfo: 'Cód ${customer['code']}',
+                        iconButton: IconButton(
+                          onPressed: () => dialogEdit(customer),
+                          icon: Icon(Icons.edit),
+                          color: Colors.amber,
                         ),
                       ),
-                      icon: Icon(Icons.edit),
-                      color: Colors.amber,
+                      right: () async {
+                        await dialogEdit(customer);
+                        onRefresh();
+                      },
+                      left: () async {
+                        bool response = await deleteData(
+                          customer,
+                          context,
+                          'persons',
+                        );
+                        if (response) {
+                          onRefresh();
+                        }
+                      },
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -97,65 +125,50 @@ class _ClientListState extends State<ClientList> {
     );
   }
 
-  void _showAddModal() {
-    showDialog(
+  Future<void> dialogEdit(customer) async {
+    await showDialog(
       context: context,
       builder: (context) => CrudCustomer.modalMod1(
         context,
-        customers[0]['id'],
-        nameController..text = customers[0]['name'],
-        cpfController..text = customers[0]['cpf'],
-        emailController..text = customers[0]['email'],
-        phoneController..text = customers[0]['phone'],
-        cepController..text = customers[0]['zip_code'],
-        streetController..text = customers[0]['street'],
-        neighborhoodController..text = customers[0]['neighborhood'],
-        numberController..text = customers[0]['number'],
-        complementController..text = customers[0]['complement'],
-        cityController..text = customers[0]['city'],
-        stateController..text = customers[0]['state'],
+        customer['persons_id'],
+        nameController..text = customer['name'] ?? '',
+        cpfController..text = customer['cpf'] ?? '',
+        emailController..text = customer['email'] ?? '',
+        phoneController..text = customer['phone'] ?? '',
+        cepController..text = customer['zip_code'] ?? '',
+        streetController..text = customer['street'] ?? '',
+        neighborhoodController..text = customer['neighborhood'] ?? '',
+        numberController..text = customer['number'] ?? '',
+        complementController..text = customer['complement'] ?? '',
+        cityController..text = customer['city'] ?? '',
+        stateController..text = customer['state'] ?? '',
       ),
-      // ModalMod1(
-      //   content: Column(
-      //     mainAxisSize: MainAxisSize.min,
-      //     children: [
-      //       Row(
-      //         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      //         children: [
-      //           TextFieldMod1(
-      //             controller: nameController..text = customers[0]['name'],
-      //             labelText: 'Nome',
-      //             width: 120,
-      //           ),
-      //           TextFieldMod1(
-      //             controller: cpfController..text = customers[0]['cpf'],
-      //             labelText: 'CPF/CNPJ',
-      //             width: 120,
-      //           ),
-      //         ],
-      //       ),
-      //       SizedBox(height: 10),
-      //       TextFieldMod1(
-      //         controller: emailController..text = customers[0]['email'],
-      //         labelText: 'Email para contato',
-      //       ),
-      //       SizedBox(height: 10),
-      //       TextFieldMod1(
-      //         controller: phoneController..text = customers[0]['phone'],
-      //         labelText: 'Telefone para contato',
-      //       ),
-      //     ],
-      //   ),
-      // ),
     );
+  }
+
+  Future<void> search(String query) async {
+    setState(() {
+      if (query.isEmpty) {
+        filteredData = List.from(customers);
+      } else {
+        filteredData = customers.where((row) {
+          return row.values.any(
+            (value) => normalizeString(value.toString()).contains(
+              normalizeString(query),
+            ),
+          );
+        }).toList();
+      }
+    });
   }
 
   Future<void> getClients() async {
     customers = await Customers().getClient();
+    filteredData = customers;
     setState(() {});
   }
 
-  void onRefresh() {
-    getClients();
+  Future<void> onRefresh() async {
+    setState(() {});
   }
 }

@@ -4,7 +4,6 @@ import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
-import 'package:scheduling/component/modal/modal_mod2.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PaymentException implements Exception {
@@ -219,7 +218,7 @@ class PaymentService {
   //   }
 
   //   try {
-  //     final url = Uri.parse('$baseUrl/api/payments/public-key');
+  //     final url = Uri.parse('$baseUrl/api/payments/v1/public-key');
   //     final response = await http.get(url, headers: {'X-Tenant-ID': tenantId});
   //     if (response.statusCode == 200) {
   //       final res = jsonDecode(response.body);
@@ -240,31 +239,31 @@ class PaymentService {
   ) async {
     final prefs = await SharedPreferences.getInstance();
 
-    String url = '$baseUrl/api/payments/pix';
-    // if (payload.type == 'credit_card' || payload.type == 'debit_card') {
-    //   url = '$baseUrl/api/payments/card';
-    // }
+    String url = '$baseUrl/api/payments/v1/pix';
+    if (payload.type == 'credit_card' || payload.type == 'debit_card') {
+      url = '$baseUrl/api/payments/v1/link';
+    }
 
-    // Detecta se estamos em modo sandbox e sanitiza o e-mail do cliente caso necessário
-    // var gateway =
-    //     activeGateway ??
-    //     {'environment': 'sandbox', 'public_key': 'TEST-PUBLIC-KEY-MOCK'};
-    // final isSandbox = gateway['environment'] == 'sandbox';
+    //Detecta se estamos em modo sandbox e sanitiza o e-mail do cliente caso necessário
+    var gateway =
+        activeGateway ??
+        {'environment': 'sandbox', 'public_key': 'TEST-PUBLIC-KEY-MOCK'};
+    final isSandbox = gateway['environment'] == 'sandbox';
 
-    // if (isSandbox && payload.customer.email.isNotEmpty) {
-    //   final email = payload.customer.email;
-    //   if (!email.endsWith('@testuser.com')) {
-    //     final parts = email.split('@');
-    //     final localPart = parts[0].replaceAll(
-    //       RegExp(r'[^a-zA-Z0-9]'),
-    //       '',
-    //     ); // Remove caracteres especiais
-    //     payload.customer.email = '$localPart@testuser.com';
-    //     print(
-    //       '🔧 [PaymentService] Sandbox mode detected. Automatically rewritten customer email to: ${payload.customer.email}',
-    //     );
-    //   }
-    // }
+    if (isSandbox && payload.customer.email.isNotEmpty) {
+      final email = payload.customer.email;
+      if (!email.endsWith('@testuser.com')) {
+        final parts = email.split('@');
+        final localPart = parts[0].replaceAll(
+          RegExp(r'[^a-zA-Z0-9]'),
+          '',
+        ); // Remove caracteres especiais
+        payload.customer.email = '$localPart@testuser.com';
+        print(
+          '🔧 [PaymentService] Sandbox mode detected. Automatically rewritten customer email to: ${payload.customer.email}',
+        );
+      }
+    }
 
     try {
       final response = await http
@@ -279,11 +278,18 @@ class PaymentService {
             body: jsonEncode(payload.toJson()),
           )
           .timeout(const Duration(seconds: 15));
+      log(jsonEncode(payload.toJson()));
 
       final dynamic responseBody = jsonDecode(response.body);
+      print(responseBody);
+
+      if (responseBody["payment_link"] != null) {
+        return {"payment_link": responseBody["payment_link"]};
+      }
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         if (responseBody != null && responseBody is Map) {
+          print(response.body);
           final backendError =
               responseBody['error'] ??
               responseBody['status_detail'] ??
@@ -309,7 +315,7 @@ class PaymentService {
               'Erro no processamento do pagamento no gateway.',
         );
       }
-
+      log(responseBody);
       return responseBody;
     } catch (err) {
       print('❌ [PaymentService] Payment request failed or timed out: $err');

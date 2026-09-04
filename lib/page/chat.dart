@@ -1,13 +1,17 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
+import 'package:scheduling/function/log_request_function.dart';
 import 'package:scheduling/main.dart';
 import 'package:scheduling/requests/endpoints.dart';
 import 'package:scheduling/style/color.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:typed_data';
+
+import 'package:url_launcher/url_launcher.dart';
 
 class ChatMessage {
   final String text;
@@ -34,6 +38,75 @@ class Chat extends StatefulWidget {
 }
 
 class _ChatState extends State<Chat> {
+  Widget _buildMessageText(String text, bool isMe) {
+    final RegExp urlRegExp = RegExp(
+      r'(https?:\/\/[^\s]+)',
+      caseSensitive: false,
+    );
+    final matches = urlRegExp.allMatches(text);
+    if (matches.isEmpty) {
+      return Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          color: isMe ? ColorsApp.primaryColor : ColorsApp.secondaryColor,
+        ),
+      );
+    }
+    final List<TextSpan> spans = [];
+    int lastMatchEnd = 0;
+    for (final match in matches) {
+      // Adiciona texto normal antes do link
+      if (match.start > lastMatchEnd) {
+        spans.add(
+          TextSpan(
+            text: text.substring(lastMatchEnd, match.start),
+            style: TextStyle(
+              color: isMe ? ColorsApp.primaryColor : ColorsApp.secondaryColor,
+            ),
+          ),
+        );
+      }
+      // Adiciona o link estilizado e clicável
+      final url = match.group(0)!;
+      spans.add(
+        TextSpan(
+          text: url,
+          style: TextStyle(
+            color: isMe ? Colors.blue[100] : Colors.blue,
+            decoration: TextDecoration.underline,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () async {
+              final uri = Uri.tryParse(url);
+              if (uri != null) {
+                try {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } catch (e) {
+                  debugPrint('Erro ao abrir link: $e');
+                }
+              }
+            },
+        ),
+      );
+      lastMatchEnd = match.end;
+    }
+    // Adiciona o restante do texto normal se houver
+    if (lastMatchEnd < text.length) {
+      spans.add(
+        TextSpan(
+          text: text.substring(lastMatchEnd),
+          style: TextStyle(
+            color: isMe ? ColorsApp.primaryColor : ColorsApp.secondaryColor,
+          ),
+        ),
+      );
+    }
+    return RichText(
+      text: TextSpan(style: const TextStyle(fontSize: 12), children: spans),
+    );
+  }
+
   final TextEditingController _messageController = TextEditingController();
   String _nomeUsuario = '';
   String _companyName = '';
@@ -206,15 +279,7 @@ class _ChatState extends State<Chat> {
               crossAxisAlignment: WrapCrossAlignment.end,
               spacing: 8,
               children: [
-                Text(
-                  message.text,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: message.isMe
-                        ? ColorsApp.primaryColor
-                        : ColorsApp.secondaryColor,
-                  ),
-                ),
+                _buildMessageText(message.text, message.isMe),
                 Text(
                   message.time,
                   style: const TextStyle(fontSize: 10, color: Colors.grey),
@@ -313,21 +378,31 @@ class _ChatState extends State<Chat> {
   }
 
   Future<void> getResponses() async {
+    final prefs = await SharedPreferences.getInstance();
+    final baseUrl = dotenv.env['BASE_URL'];
+    final uri = Uri.parse('$baseUrl${Endpoints.list}');
+    final headers = {
+      'Authorization':
+          'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
+      'Content-Type': 'application/json',
+      'X-TENANT-ID': "${prefs.getString("tenant_id")}",
+    };
+    final body = {
+      'q':
+          "SELECT * FROM quick_responses WHERE company_id = '${prefs.getString('company_id')}'",
+    };
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final baseUrl = dotenv.env['BASE_URL'];
       final response = await http.post(
-        Uri.parse('$baseUrl${Endpoints.list}'),
-        headers: {
-          'Authorization':
-              'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
-          'Content-Type': 'application/json',
-          'X-TENANT-ID': "${prefs.getString("tenant_id")}",
-        },
-        body: jsonEncode({
-          'q':
-              "SELECT * FROM quick_responses WHERE company_id = '${prefs.getString('company_id')}'",
-        }),
+        uri,
+        headers: headers,
+        body: jsonEncode(body),
+      );
+      await logApiRequest(
+        url: uri,
+        headers: headers,
+        body: body,
+        response: response,
+        tag: 'ChatPage.getResponses',
       );
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -340,6 +415,13 @@ class _ChatState extends State<Chat> {
       }
     } catch (e) {
       log('Erro ao obter respostas: $e');
+      await logApiRequest(
+        url: uri,
+        headers: headers,
+        body: body,
+        error: e.toString(),
+        tag: 'ChatPage.getResponses (ERROR)',
+      );
     }
   }
 }

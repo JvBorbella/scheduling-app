@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -9,10 +10,12 @@ import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/button/text_icon_button.dart';
 import 'package:scheduling/component/card/card_list.dart';
+import 'package:scheduling/component/card/dynamic_card.dart';
 import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod2.dart';
-import 'package:scheduling/component/text_field/text_field_mod1.dart';
+import 'package:scheduling/component/return/messenge.dart';
 import 'package:scheduling/modals_crud/crud_customer.dart';
+import 'package:scheduling/modals_crud/crud_notify.dart';
 import 'package:scheduling/modals_crud/crud_product.dart';
 import 'package:scheduling/modals_crud/crud_scheduling.dart';
 import 'package:scheduling/modals_crud/crud_services.dart';
@@ -24,6 +27,7 @@ import 'package:scheduling/page/client.dart';
 import 'package:scheduling/page/login.dart';
 import 'package:scheduling/page/messenge.dart';
 import 'package:scheduling/page/notify.dart';
+import 'package:scheduling/function/log_request_function.dart';
 import 'package:scheduling/page/shedulings.dart';
 import 'package:scheduling/style/color.dart';
 import 'package:searchfield/searchfield.dart';
@@ -37,7 +41,10 @@ void main() async {
   await initializeDateFormatting('pt_BR', null);
   await ColorsApp.getCompany();
   await ColorsApp.setColors();
-  runApp(const MyApp());
+  runWithLoggingClient(
+    () => runApp(const MyApp()),
+    forceLog: true,
+  );
 }
 
 class Services {
@@ -50,7 +57,7 @@ class Services {
 
   factory Services.fromJson(Map<String, dynamic> json) {
     return Services(
-      id: json['id']?.toString() ?? '',
+      id: json['services_id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       code: json['code']?.toString() ?? '',
       price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
@@ -77,7 +84,7 @@ class Clients {
 
   factory Clients.fromJson(Map<String, dynamic> json) {
     return Clients(
-      id: json['id']?.toString() ?? '',
+      id: json['persons_id']?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
@@ -311,6 +318,7 @@ class _AppState extends State<App> {
               '',
               '',
               '',
+              '',
             );
             if (_selectedIndex == 0) {
               showDialog(context: context, builder: (context) => modal);
@@ -403,24 +411,6 @@ class _AppState extends State<App> {
     // Limpa a seleção anterior ao abrir o modal para um novo agendamento
     selectedValue = null;
     _serviceController.clear();
-
-    String selectedPaymentType = 'pix';
-    final TextEditingController _cardNumberController = TextEditingController();
-    final TextEditingController _cardholderController = TextEditingController();
-    final TextEditingController _expiryMonthController =
-        TextEditingController();
-    final TextEditingController _expiryYearController = TextEditingController();
-    final TextEditingController _cvvController = TextEditingController();
-    final TextEditingController _cpfController = TextEditingController();
-    final TextEditingController _amountController = TextEditingController(
-      text: initialData?['total_amount']?.toString() ?? '0.10',
-    );
-    final TextEditingController _clientController = TextEditingController(
-      text: initialData?['client']?.toString() ?? '',
-    );
-    final TextEditingController _dateTimeController = TextEditingController(
-      text: initialData?['scheduled_date']?.toString() ?? '',
-    );
     // Se tiver nome do serviço em initialData, tenta preencher
     if (initialData?['service_name'] != null) {
       _serviceController.text = initialData!['service_name'].toString();
@@ -473,25 +463,7 @@ class _AppState extends State<App> {
                 TextEditingController(),
                 TextEditingController(),
               )
-            : ModalMod1(
-                title: _selectedIndex == 0 ? 'Confirmar Agendamento' : null,
-                textButton: _selectedIndex == 0 ? 'Confirmar e Pagar' : null,
-                onPressed: null,
-                content: _selectedIndex == 4
-                    ? Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const TextFieldMod1(
-                            labelText: 'Selecione Data e Horário',
-                            readOnly: true,
-                            suffixIcon: Icon(Icons.calendar_month),
-                          ),
-                          const SizedBox(height: 10),
-                          TextFieldMod1(labelText: 'Descrição', maxLines: 5),
-                        ],
-                      )
-                    : null,
-              ),
+            : NotifyCrud(context),
       ),
     ).then((_) {
       getClients(context);
@@ -623,6 +595,8 @@ class _DrawerTabState extends State<DrawerTab> {
       }),
     );
 
+    print(jsonDecode(response.body).toString());
+
     return jsonDecode(response.body);
   }
 
@@ -634,6 +608,7 @@ class _DrawerTabState extends State<DrawerTab> {
     getServices();
     getProducts();
     getPrefs();
+    print(prefs?.getString("avatar_url"));
   }
 
   @override
@@ -665,15 +640,22 @@ class _DrawerTabState extends State<DrawerTab> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    maxRadius: 25,
-                    backgroundColor: ColorsApp.primaryColor,
-                    child: Icon(
-                      Icons.person,
-                      size: 50,
-                      color: ColorsApp.secondaryColor,
-                    ),
-                  ),
+                  prefs?.getString('avatar_url') != null
+                      ? Image.network(
+                          prefs!.getString('avatar_url')!,
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                        )
+                      : CircleAvatar(
+                          maxRadius: 25,
+                          backgroundColor: ColorsApp.primaryColor,
+                          child: Icon(
+                            Icons.person,
+                            size: 50,
+                            color: ColorsApp.secondaryColor,
+                          ),
+                        ),
                   SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -901,7 +883,6 @@ class _DrawerTabState extends State<DrawerTab> {
                       vertical: 4,
                     ),
                     onTap: () async {
-                      var productData = await getProducts();
                       var serviceData = await getServices();
 
                       showDialog(
@@ -922,40 +903,139 @@ class _DrawerTabState extends State<DrawerTab> {
                                       itemBuilder: (BuildContext context, int index) {
                                         var service =
                                             serviceData['results'][index];
+                                        var remove = false;
                                         return Padding(
                                           padding: const EdgeInsets.only(
                                             bottom: 10,
                                           ),
-                                          child: CardList(
-                                            title: service['name'],
-                                            text:
-                                                'Descrição: ${service['description']}\nPreço: ${service['price']}',
-                                            iconButton: IconButton(
-                                              onPressed: () =>
-                                                  showDialog(
-                                                    context: context,
-                                                    builder: (context) =>
-                                                        CrudServices.modal1(
-                                                          context,
-                                                          service['id'],
-                                                          service['name'],
-                                                          service['description'],
-                                                          double.parse(
-                                                            service['price'],
+                                          child: DynamicCard(
+                                            colorRight: Colors.orange,
+                                            colorLeft: Colors.red,
+                                            remove: remove,
+                                            child: CardList(
+                                              title: service['name'],
+                                              text:
+                                                  'Descrição: ${service['description']}\nPreço: ${service['price']}',
+                                              iconButton: IconButton(
+                                                onPressed: () =>
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (context) =>
+                                                          CrudServices.modal1(
+                                                            context,
+                                                            service['services_id'],
+                                                            service['name'],
+                                                            service['description'],
+                                                            double.parse(
+                                                              service['price'],
+                                                            ),
                                                           ),
-                                                        ),
-                                                  ).then((_) async {
-                                                    serviceData =
-                                                        await getProducts();
-                                                    setState(() {});
-                                                  }),
-                                              icon: Icon(
-                                                Icons.edit,
-                                                color: ColorsApp.secondaryColor,
+                                                    ).then((_) async {
+                                                      serviceData =
+                                                          await getProducts();
+                                                      setState(() {});
+                                                    }),
+                                                icon: Icon(
+                                                  Icons.edit,
+                                                  color:
+                                                      ColorsApp.secondaryColor,
+                                                ),
                                               ),
+                                              textInfo:
+                                                  'Cód: ${service['code'].toString()}',
                                             ),
-                                            textInfo:
-                                                'Cód: ${service['code'].toString()}',
+                                            right: () {
+                                              remove = false;
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) =>
+                                                    CrudServices.modal1(
+                                                      context,
+                                                      service['services_id'],
+                                                      service['name'],
+                                                      service['description'] ??
+                                                          '',
+                                                      double.parse(
+                                                        service['price'],
+                                                      ),
+                                                    ),
+                                              ).then((_) async {
+                                                serviceData =
+                                                    await getServices();
+                                                setState(() {});
+                                              });
+                                            },
+                                            left: () async {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => ModalMod1(
+                                                  title: 'Excluir Serviço',
+                                                  content: Text(
+                                                    'Tem certeza que deseja excluir o serviço?',
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(
+                                                      color: ColorsApp
+                                                          .secondaryColor,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                  textButton: 'Excluir',
+                                                  onPressed: () async {
+                                                    final prefs =
+                                                        await SharedPreferences.getInstance();
+                                                    await dotenv.load(
+                                                      fileName: ".env",
+                                                    );
+                                                    final baseUrl =
+                                                        dotenv.env['BASE_URL']!;
+                                                    try {
+                                                      final response = await http.post(
+                                                        Uri.parse(
+                                                          baseUrl +
+                                                              Endpoints.delete,
+                                                        ),
+                                                        headers: {
+                                                          'Authorization':
+                                                              'Bearer ${prefs.getString('access_token') ?? prefs.getString('refresh_token')}',
+                                                          'Content-Type':
+                                                              'application/json',
+                                                          'X-TENANT-ID':
+                                                              '${prefs.getString('tenant_id')}',
+                                                        },
+                                                        body: jsonEncode({
+                                                          "tabela": "services",
+                                                          "id":
+                                                              service['services_id'],
+                                                        }),
+                                                      );
+                                                      if (response.statusCode ==
+                                                          200) {
+                                                        Message.showReturnOverlay(
+                                                          context,
+                                                          Colors.green,
+                                                          Icons.check,
+                                                          "Serviço removido!",
+                                                        );
+                                                      } else {
+                                                        Message.showReturnOverlay(
+                                                          context,
+                                                          Colors.red,
+                                                          Icons.error,
+                                                          response.body,
+                                                        );
+                                                      }
+                                                    } catch (e) {
+                                                      log(e.toString());
+                                                    }
+                                                  },
+                                                ),
+                                              ).then((_) async {
+                                                serviceData =
+                                                    await getServices();
+                                                setState(() {});
+                                              });
+                                              ;
+                                            },
                                           ),
                                         );
                                       },
@@ -1137,40 +1217,137 @@ class _DrawerTabState extends State<DrawerTab> {
                                       itemBuilder: (BuildContext context, int index) {
                                         var product =
                                             productData['results'][index];
+                                        var remove = false;
                                         return Padding(
                                           padding: const EdgeInsets.only(
                                             bottom: 10,
                                           ),
-                                          child: CardList(
-                                            title: product['name'],
-                                            text:
-                                                'Descrição: ${product['description']}\nPreço: ${product['price']}',
-                                            iconButton: IconButton(
-                                              onPressed: () =>
-                                                  showDialog(
-                                                    context: context,
-                                                    builder: (context) =>
-                                                        CrudServices.modal1(
-                                                          context,
-                                                          product['id_products'],
-                                                          product['name'],
-                                                          product['description'],
-                                                          double.parse(
-                                                            product['price'],
+                                          child: DynamicCard(
+                                            colorRight: Colors.orange,
+                                            colorLeft: Colors.red,
+                                            remove: remove,
+                                            child: CardList(
+                                              title: product['name'],
+                                              text:
+                                                  'Descrição: ${product['description']}\nPreço: ${product['price']}',
+                                              iconButton: IconButton(
+                                                onPressed: () =>
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (context) =>
+                                                          CrudServices.modal1(
+                                                            context,
+                                                            product['products_id'],
+                                                            product['name'],
+                                                            product['description'],
+                                                            double.parse(
+                                                              product['price'],
+                                                            ),
                                                           ),
-                                                        ),
-                                                  ).then((_) async {
-                                                    productData =
-                                                        await getProducts();
-                                                    setState(() {});
-                                                  }),
-                                              icon: Icon(
-                                                Icons.edit,
-                                                color: ColorsApp.secondaryColor,
+                                                    ).then((_) async {
+                                                      productData =
+                                                          await getProducts();
+                                                      setState(() {});
+                                                    }),
+                                                icon: Icon(
+                                                  Icons.edit,
+                                                  color:
+                                                      ColorsApp.secondaryColor,
+                                                ),
                                               ),
+                                              textInfo:
+                                                  'Cód: ${product['code'].toString()}',
                                             ),
-                                            textInfo:
-                                                'Cód: ${product['code'].toString()}',
+                                            right: () async {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) =>
+                                                    CrudServices.modal1(
+                                                      context,
+                                                      product['products_id'],
+                                                      product['name'],
+                                                      product['description'],
+                                                      double.parse(
+                                                        product['price'] ??
+                                                            '0.00',
+                                                      ),
+                                                    ),
+                                              ).then((_) async {
+                                                productData =
+                                                    await getProducts();
+                                                setState(() {});
+                                              });
+                                            },
+                                            left: () async {
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) => ModalMod1(
+                                                  title: 'Excluir Item',
+                                                  content: Text(
+                                                    'Tem certeza que deseja excluir o item?',
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(
+                                                      color: ColorsApp
+                                                          .secondaryColor,
+                                                      fontSize: 16,
+                                                    ),
+                                                  ),
+                                                  textButton: 'Excluir',
+                                                  onPressed: () async {
+                                                    final prefs =
+                                                        await SharedPreferences.getInstance();
+                                                    await dotenv.load(
+                                                      fileName: ".env",
+                                                    );
+                                                    final baseUrl =
+                                                        dotenv.env['BASE_URL']!;
+                                                    try {
+                                                      final response = await http.post(
+                                                        Uri.parse(
+                                                          baseUrl +
+                                                              Endpoints.delete,
+                                                        ),
+                                                        headers: {
+                                                          'Authorization':
+                                                              'Bearer ${prefs.getString('access_token') ?? prefs.getString('refresh_token')}',
+                                                          'Content-Type':
+                                                              'application/json',
+                                                          'X-TENANT-ID':
+                                                              '${prefs.getString('tenant_id')}',
+                                                        },
+                                                        body: jsonEncode({
+                                                          "tabela": "products",
+                                                          "id":
+                                                              product['products_id'],
+                                                        }),
+                                                      );
+                                                      if (response.statusCode ==
+                                                          200) {
+                                                        Message.showReturnOverlay(
+                                                          context,
+                                                          Colors.green,
+                                                          Icons.check,
+                                                          "Item removido!",
+                                                        );
+                                                      } else {
+                                                        Message.showReturnOverlay(
+                                                          context,
+                                                          Colors.red,
+                                                          Icons.error,
+                                                          response.body,
+                                                        );
+                                                      }
+                                                    } catch (e) {
+                                                      log(e.toString());
+                                                    }
+                                                  },
+                                                ),
+                                              ).then((_) async {
+                                                productData =
+                                                    await getProducts();
+                                                setState(() {});
+                                              });
+                                            },
                                           ),
                                         );
                                       },

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:scheduling/component/card/card_list.dart';
 import 'package:scheduling/component/text_field/search_bar.dart';
-import 'package:scheduling/main.dart';
 import 'package:scheduling/page/chat.dart';
 import 'package:scheduling/style/color.dart';
 import 'dart:typed_data';

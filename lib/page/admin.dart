@@ -11,10 +11,10 @@ import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/card/card_list.dart';
-import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod2.dart';
 import 'package:scheduling/component/return/messenge.dart';
 import 'package:scheduling/component/text_field/text_field_mod1.dart';
+import 'package:scheduling/function/log_request_function.dart';
 import 'package:scheduling/main.dart';
 import 'package:scheduling/mask/cnpj.dart';
 import 'package:scheduling/modals_crud/crud_quick_responses.dart';
@@ -88,7 +88,6 @@ class _AdminPageState extends State<AdminPage> {
     final ImagePicker picker = ImagePicker();
     try {
       final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
@@ -139,11 +138,11 @@ class _AdminPageState extends State<AdminPage> {
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
         setState(() {
-          _cnpjController.text = data['results'][0]['cnpj'];
+          //_cnpjController.text = data['results'][0]['cnpj']; //❌
           _nameController.text = data['results'][0]['name'];
           _companyNameController.text = data['results'][0]['trade_name'];
-          _phoneController.text = data['results'][0]['phone'];
-          _emailController.text = data['results'][0]['email'];
+          //_phoneController.text = data['results'][0]['phone']; //❌
+          //_emailController.text = data['results'][0]['email']; //❌
           _primaryColor = data['results'][0]['primary_color'];
           _secondaryColor = data['results'][0]['secondary_color'];
           _primaryController.color = hexToColor(_primaryColor);
@@ -157,18 +156,28 @@ class _AdminPageState extends State<AdminPage> {
   Future<void> getQuickResponses() async {
     final baseUrl = dotenv.env['BASE_URL'];
     final prefs = await SharedPreferences.getInstance();
+    final uri = Uri.parse('$baseUrl${Endpoints.list}');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization':
+          'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
+      'X-TENANT-ID': "${prefs.getString("tenant_id")}",
+    };
+    final body = {
+      'q':
+          'SELECT * FROM quick_responses WHERE COALESCE(is_deleted, 0) <> 1;',
+    };
     final response = await http.post(
-      Uri.parse('$baseUrl${Endpoints.list}'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization':
-            'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
-        'X-TENANT-ID': "${prefs.getString("tenant_id")}",
-      },
-      body: jsonEncode({
-        'q':
-            'SELECT * FROM quick_responses WHERE COALESCE(is_deleted, 0) <> 1;',
-      }),
+      uri,
+      headers: headers,
+      body: jsonEncode(body),
+    );
+    await logApiRequest(
+      url: uri,
+      headers: headers,
+      body: body,
+      response: response,
+      tag: 'AdminPage.getQuickResponses',
     );
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
@@ -181,15 +190,25 @@ class _AdminPageState extends State<AdminPage> {
   Future<void> deleteQuickResponse(String id) async {
     final baseUrl = dotenv.env['BASE_URL'];
     final prefs = await SharedPreferences.getInstance();
+    final uri = Uri.parse('$baseUrl${Endpoints.delete}');
+    final headers = {
+      'Content-Type': 'application/json',
+      'Authorization':
+          'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
+      'X-TENANT-ID': "${prefs.getString("tenant_id")}",
+    };
+    final body = {'tabela': 'quick_responses', 'id': id.toString()};
     final response = await http.post(
-      Uri.parse('$baseUrl${Endpoints.delete}'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization':
-            'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
-        'X-TENANT-ID': "${prefs.getString("tenant_id")}",
-      },
-      body: jsonEncode({'tabela': 'quick_responses', 'id': id.toString()}),
+      uri,
+      headers: headers,
+      body: jsonEncode(body),
+    );
+    await logApiRequest(
+      url: uri,
+      headers: headers,
+      body: body,
+      response: response,
+      tag: 'AdminPage.deleteQuickResponse',
     );
     if (response.statusCode == 200) {
       Message.showReturnOverlay(
@@ -208,44 +227,12 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
-  Future<void> getLicenses() async {
-    final baseUrl = dotenv.env['BASE_URL'];
-    final prefs = await SharedPreferences.getInstance();
-    final response = await http.post(
-      Uri.parse('$baseUrl${Endpoints.list}'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization':
-            'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
-        'X-TENANT-ID': "${prefs.getString("tenant_id")}",
-      },
-      body: jsonEncode({
-        'q':
-            'SELECT * FROM licenses WHERE tenant_id = "${prefs.getString("tenant_id")}"',
-      }),
-    );
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      setState(() {
-        licenses = data['results'];
-      });
-    } else {
-      Message.showReturnOverlay(
-        context,
-        Colors.red,
-        Icons.error,
-        response.body.toString(),
-      );
-    }
-  }
-
   @override
   void initState() {
     super.initState();
     getUsuario();
     getCompany();
     getQuickResponses();
-    getLicenses();
     getPrefs();
     _primaryController = CircleColorPickerController(
       initialColor: ColorsApp.primaryColor,
@@ -679,180 +666,220 @@ class _AdminPageState extends State<AdminPage> {
                                     prefs.getString("access_token") ??
                                     prefs.getString("refresh_token");
                                 String urlImage = '';
-                                try {
-                                  var request = http.MultipartRequest(
-                                    'POST',
-                                    Uri.parse(
-                                      'http://oblynx.com.br:8000${Endpoints.uploadImage}',
-                                    ),
+                                  final uploadUri = Uri.parse(
+                                    '${baseUrl}${Endpoints.uploadImage}',
                                   );
-                                  request.headers.addAll({
-                                    'Authorization': 'Bearer $token',
-                                  });
-                                  if (_selectedImage != null) {
-                                    String ext = _selectedImage!.path
-                                        .split('.')
-                                        .last
-                                        .toLowerCase();
-                                    MediaType mediaType = MediaType(
-                                      'image',
-                                      ext == 'png' ? 'png' : 'jpeg',
+                                  try {
+                                    var request = http.MultipartRequest(
+                                      'POST',
+                                      uploadUri,
                                     );
-                                    request.files.add(
-                                      http.MultipartFile.fromBytes(
-                                        'file',
-                                        await _selectedImage!.readAsBytes(),
-                                        filename: _selectedImage!.path
-                                            .split('/')
-                                            .last,
-                                        contentType: mediaType,
-                                      ),
-                                    );
-                                  }
-                                  request.fields['folder'] = 'empresa';
-                                  request.fields['usuario_id'] = _usuarioId;
-                                  final clientKey = prefs.getString(
-                                    "client_key",
-                                  );
-                                  if (clientKey != null) {
-                                    request.fields['client_key'] = clientKey;
-                                  }
-                                  request.fields['flagpublico'] = '1';
-                                  var streamedResponse = await request.send();
-                                  var response = await http.Response.fromStream(
-                                    streamedResponse,
-                                  );
-                                  if (response.statusCode == 200) {
-                                    final dynamic decoded = json.decode(
-                                      response.body,
-                                    );
-                                    urlImage = decoded['url'];
-                                  } else {
-                                    log('log envio imagem: ${response.body}');
-                                  }
-                                } catch (e) {
-                                  Message.showReturnOverlay(
-                                    context,
-                                    Colors.red,
-                                    Icons.error,
-                                    e.toString(),
-                                  );
-                                }
-                                try {
-                                  final response = await http.post(
-                                    Uri.parse(baseUrl + Endpoints.edit),
-                                    headers: {
-                                      'Content-Type': 'application/json',
+                                    request.headers.addAll({
                                       'Authorization': 'Bearer $token',
-                                      'X-TENANT-ID':
-                                          "${prefs.getString("tenant_id")}",
-                                    },
-                                    body: json.encode({
-                                      "tabela": "companies",
-                                      "id": "${prefs.getString("company_id")}",
-                                      "values": {
-                                        "name": _nameController.text,
-                                        "trade_name":
-                                            _companyNameController.text,
-                                        // "tenant_id":
-                                        //     "${prefs.getString("empresa_id")}",
-                                        // "company_id":
-                                        //     "${prefs.getString("company_id")}",
-                                        "cnpj": unMasked(_cnpjController.text),
-                                        "email": _emailController.text,
-                                        "phone": unMasked(
-                                          _phoneController.text,
+                                    });
+                                    if (_selectedImage != null) {
+                                      String ext = _selectedImage!.path
+                                          .split('.')
+                                          .last
+                                          .toLowerCase();
+                                      MediaType mediaType = MediaType(
+                                        'image',
+                                        ext == 'png' ? 'png' : 'jpeg',
+                                      );
+                                      request.files.add(
+                                        http.MultipartFile.fromBytes(
+                                          'file',
+                                          await _selectedImage!.readAsBytes(),
+                                          filename: _selectedImage!.path
+                                              .split('/')
+                                              .last,
+                                          contentType: mediaType,
                                         ),
-                                        "zip_code": unMasked(
-                                          _cepController.text,
-                                        ),
-                                        "street": _addressController.text,
-                                        "street_number": _numeroController.text,
-                                        "complement":
-                                            _complementoController.text,
-                                        "neighborhood": _bairroController.text,
-                                        "city": _cidadeController.text,
-                                        "state": _estadoController.text,
-                                        "primary_color": _primaryColor,
-                                        "secondary_color": _secondaryColor,
-                                        "logo_url": urlImage,
-                                        "is_headquarters": 0,
-                                        //"parent_id": null,
+                                      );
+                                    }
+                                    request.fields['folder'] = 'empresa';
+                                    request.fields['usuario_id'] = _usuarioId;
+                                    final clientKey = prefs.getString(
+                                      "client_key",
+                                    );
+                                    if (clientKey != null) {
+                                      request.fields['client_key'] = clientKey;
+                                    }
+                                    request.fields['flagpublico'] = '1';
+                                    request.fields['cnpj'] =
+                                        prefs.getString("cnpjCompany") ?? "";
+                                    var streamedResponse = await request.send();
+                                    var response = await http.Response.fromStream(
+                                      streamedResponse,
+                                    );
+                                    await logApiRequest(
+                                      url: uploadUri,
+                                      headers: request.headers,
+                                      body: {
+                                        ...request.fields,
+                                        'file': _selectedImage?.path.split('/').last ?? '',
                                       },
-                                    }),
-                                  );
-                                  if (response.statusCode == 200) {
-                                    Message.showReturnOverlay(
-                                      context,
-                                      Colors.green,
-                                      Icons.check,
-                                      "Filial cadastrada com sucesso!",
+                                      response: response,
+                                      tag: 'AdminPage.uploadImage (Empresa)',
                                     );
-                                    prefs.setString(
-                                      "cnpjCompany",
-                                      unMasked(_cnpjController.text)!,
+                                    if (response.statusCode == 200) {
+                                      final dynamic decoded = json.decode(
+                                        response.body,
+                                      );
+                                      urlImage = decoded['url'];
+                                    } else {
+                                      log('log envio imagem: ${response.body}');
+                                    }
+                                  } catch (e) {
+                                    await logApiRequest(
+                                      url: uploadUri,
+                                      error: e.toString(),
+                                      tag: 'AdminPage.uploadImage (ERROR)',
                                     );
-                                  } else {
                                     Message.showReturnOverlay(
                                       context,
                                       Colors.red,
                                       Icons.error,
-                                      response.body.toString(),
+                                      e.toString(),
                                     );
                                   }
-                                } catch (e) {
-                                  Message.showReturnOverlay(
-                                    context,
-                                    Colors.red,
-                                    Icons.error,
-                                    e.toString(),
-                                  );
-                                }
-                              },
-                            ),
-                          ],
+                                  final editCompanyUri = Uri.parse(baseUrl + Endpoints.edit);
+                                  final editCompanyHeaders = {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': 'Bearer $token',
+                                    'X-TENANT-ID':
+                                        "${prefs.getString("tenant_id")}",
+                                  };
+                                  final editCompanyBody = {
+                                    "tabela": "companies",
+                                    "id": "${prefs.getString("company_id")}",
+                                    "values": {
+                                      "name": _nameController.text,
+                                      "trade_name":
+                                          _companyNameController.text,
+                                      "cnpj": unMasked(_cnpjController.text),
+                                      "email": _emailController.text,
+                                      "phone": unMasked(
+                                        _phoneController.text,
+                                      ),
+                                      "zip_code": unMasked(
+                                        _cepController.text,
+                                      ),
+                                      "street": _addressController.text,
+                                      "street_number": _numeroController.text,
+                                      "complement":
+                                          _complementoController.text,
+                                      "neighborhood": _bairroController.text,
+                                      "city": _cidadeController.text,
+                                      "state": _estadoController.text,
+                                      "primary_color": _primaryColor,
+                                      "secondary_color": _secondaryColor,
+                                      "logo_url": urlImage,
+                                      "is_headquarters": 0,
+                                    },
+                                  };
+                                  try {
+                                    final response = await http.post(
+                                      editCompanyUri,
+                                      headers: editCompanyHeaders,
+                                      body: json.encode(editCompanyBody),
+                                    );
+                                    await logApiRequest(
+                                      url: editCompanyUri,
+                                      headers: editCompanyHeaders,
+                                      body: editCompanyBody,
+                                      response: response,
+                                      tag: 'AdminPage.saveCompany',
+                                    );
+                                    if (response.statusCode == 200) {
+                                      Message.showReturnOverlay(
+                                        context,
+                                        Colors.green,
+                                        Icons.check,
+                                        "Filial cadastrada com sucesso!",
+                                      );
+                                      prefs.setString(
+                                        "cnpjCompany",
+                                        unMasked(_cnpjController.text)!,
+                                      );
+                                    } else {
+                                      Message.showReturnOverlay(
+                                        context,
+                                        Colors.red,
+                                        Icons.error,
+                                        response.body.toString(),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    await logApiRequest(
+                                      url: editCompanyUri,
+                                      headers: editCompanyHeaders,
+                                      body: editCompanyBody,
+                                      error: e.toString(),
+                                      tag: 'AdminPage.saveCompany (ERROR)',
+                                    );
+                                    Message.showReturnOverlay(
+                                      context,
+                                      Colors.red,
+                                      Icons.error,
+                                      e.toString(),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      // Respostas rápidas
-                      AdminTile(
-                        title: 'Respostas rápidas',
-                        initialExpanded: false,
-                        content: Column(
-                          spacing: 10,
-                          children: [
-                            TextFieldMod1(
-                              controller: _quickMessageTitleController,
-                              labelText: 'Título',
-                            ),
-                            TextFieldMod1(
-                              controller: _quickMessageController,
-                              labelText: 'Mensagem',
-                              maxLines: 5,
-                            ),
-                            ButtonMod1(
-                              onPressed: () async {
-                                final prefs =
-                                    await SharedPreferences.getInstance();
-                                final baseUrl = dotenv.env['BASE_URL'];
-                                final response = await http.post(
-                                  Uri.parse('$baseUrl${Endpoints.insert}'),
-                                  headers: {
+                        // Respostas rápidas
+                        AdminTile(
+                          title: 'Respostas rápidas',
+                          initialExpanded: false,
+                          content: Column(
+                            spacing: 10,
+                            children: [
+                              TextFieldMod1(
+                                controller: _quickMessageTitleController,
+                                labelText: 'Título',
+                              ),
+                              TextFieldMod1(
+                                controller: _quickMessageController,
+                                labelText: 'Mensagem',
+                                maxLines: 5,
+                              ),
+                              ButtonMod1(
+                                onPressed: () async {
+                                  final prefs =
+                                      await SharedPreferences.getInstance();
+                                  final baseUrl = dotenv.env['BASE_URL'];
+                                  final insertQuickUri = Uri.parse('$baseUrl${Endpoints.insert}');
+                                  final insertQuickHeaders = {
                                     'Authorization':
                                         'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
                                     'Content-Type': 'application/json',
                                     'X-TENANT-ID':
                                         "${prefs.getString("tenant_id")}",
-                                  },
-                                  body: jsonEncode({
+                                  };
+                                  final insertQuickBody = {
                                     'tabela': "quick_responses",
                                     "values": {
                                       "title":
                                           _quickMessageTitleController.text,
                                       "content": _quickMessageController.text,
                                     },
-                                  }),
-                                );
-                                if (response.statusCode == 200) {
+                                  };
+                                  final response = await http.post(
+                                    insertQuickUri,
+                                    headers: insertQuickHeaders,
+                                    body: jsonEncode(insertQuickBody),
+                                  );
+                                  await logApiRequest(
+                                    url: insertQuickUri,
+                                    headers: insertQuickHeaders,
+                                    body: insertQuickBody,
+                                    response: response,
+                                    tag: 'AdminPage.insertQuickResponse',
+                                  );
+                                  if (response.statusCode == 200) {
                                   Message.showReturnOverlay(
                                     context,
                                     Colors.green,
@@ -895,7 +922,7 @@ class _AdminPageState extends State<AdminPage> {
                                                 builder: (context) =>
                                                     CrudQuickResponse.modalMod1(
                                                       context,
-                                                      quickResponse['id'],
+                                                      quickResponse['quick_responses_id'],
                                                       quickResponse['title'],
                                                       quickResponse['content'],
                                                     ),
@@ -910,7 +937,7 @@ class _AdminPageState extends State<AdminPage> {
                                           IconButton(
                                             onPressed: () => {
                                               deleteQuickResponse(
-                                                quickResponse['id'],
+                                                quickResponse['quick_responses_id'],
                                               ),
                                               setState(() {
                                                 getQuickResponses();
@@ -981,26 +1008,22 @@ class _AdminPageState extends State<AdminPage> {
                       AdminTile(
                         title: 'Licenciamento',
                         initialExpanded: false,
-                        content: Column(
-                          children: licenses.map((licenses) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: CardList(
-                                title: licenses['client_key'],
-                                text:
-                                    'Plano: ${licenses['plan']}\nData da assinatura: ${licenses['issued_at']}\nData de expiração: ${licenses['expires_at']}\nStatus: ${licenses['is_active'] == 1 ? 'Ativo 🟢' : 'Inativo 🔴'}',
-                                iconButton: licenses['is_active'] == 0
-                                    ? Text(
-                                        'Reativar',
-                                        style: TextStyle(
-                                          color: Colors.red,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      )
-                                    : null,
-                              ),
-                            );
-                          }).toList(),
+                        content: Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: CardList(
+                            title: prefs?.getString("client_key") ?? "",
+                            text:
+                                'Plano: ${prefs?.getString("plan")}\nData de expiração: ${prefs?.getString("expires_at")}\nStatus: ${prefs?.getInt("is_active") == 1 ? 'Ativo 🟢' : 'Inativo 🔴'}',
+                            iconButton: prefs?.getInt("is_active") == 0
+                                ? Text(
+                                    'Reativar',
+                                    style: TextStyle(
+                                      color: Colors.red,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                : null,
+                          ),
                         ),
                       ),
                     ],

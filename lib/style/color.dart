@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:scheduling/requests/company.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,15 +19,9 @@ class ColorsApp {
             prefs.setString('secondary_color', '');
             prefs.setString('logo_url', '');
           } else {
-            prefs.setString(
-              'primary_color',
-              data['results'][0]['primary_color'],
-            );
-            prefs.setString(
-              'secondary_color',
-              data['results'][0]['secondary_color'],
-            );
-            prefs.setString('logo_url', data['results'][0]['logo_url']);
+            prefs.setString('primary_color', data['results'][0]['primary_color'] ?? '');
+            prefs.setString('secondary_color', data['results'][0]['secondary_color'] ?? '');
+            prefs.setString('logo_url', data['results'][0]['logo_url'] ?? '');
           }
         }
       });

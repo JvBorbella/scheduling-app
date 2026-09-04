@@ -87,7 +87,7 @@
 //         try {
 //             const headers = new HttpHeaders().set('X-Tenant-ID', this.tenantService.currentTenantId);
 //             const res: any = await firstValueFrom(
-//                 this.http.get(`${environment.apiUrl}/api/payments/public-key`, { headers })
+//                 this.http.get(`${environment.apiUrl}/api/payments/v1/public-key`, { headers })
 //             );
 //             return res.public_key || '';
 //         } catch (err) {
@@ -110,7 +110,7 @@
 //         const base = environment.apiUrl;
 //         let url = `${base}/api/payments`;
 //         if (payload.type === 'credit_card' || payload.type === 'debit_card') {
-//             url = `${base}/api/payments/card`;
+//             url = `${base}/api/payments/v1/card`;
 //         }
 
 //         // Detecta se estamos em modo sandbox e sanitiza o e-mail do cliente caso necessário

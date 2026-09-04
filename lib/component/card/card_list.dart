@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:scheduling/main.dart';
 import 'package:scheduling/style/color.dart';
+import 'package:scheduling/style/width.dart';
 
 class CardList extends StatefulWidget {
   final String? title, text, textInfo;
@@ -42,7 +42,10 @@ class _CardListState extends State<CardList> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 titleCard(widget.title ?? ''),
-                textCard(widget.text ?? ''),
+                SizedBox(
+                  width: Responsive.w(context, 180),
+                  child: textCard(widget.text ?? '', TextOverflow.ellipsis),
+                )
               ],
             ),
             Column(
@@ -51,7 +54,10 @@ class _CardListState extends State<CardList> {
               mainAxisSize: MainAxisSize.max,
               children: [
                 widget.iconButton ?? SizedBox(),
-                textCard(widget.textInfo ?? ''),
+                SizedBox(
+                  width: Responsive.w(context, 140),
+                  child: textCard(widget.textInfo ?? '', TextOverflow.visible),
+                )
               ],
             ),
           ],
@@ -60,9 +66,10 @@ class _CardListState extends State<CardList> {
     );
   }
 
-  Widget textCard(String text) {
+  Widget textCard(String text, dynamic overflow) {
     return Text(
       text,
+      overflow: overflow ?? TextOverflow.visible,
       style: TextStyle(fontSize: 10, color: ColorsApp.secondaryColor),
     );
   }

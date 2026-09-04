@@ -40,3 +40,7 @@ class CustomCnpjAlfanumericoFormatter extends TextInputFormatter {
 String? unMasked(String value) {
   return value.replaceAll(RegExp(r'[^A-Z0-9]'), '');
 }
+
+String? unMaskedValue(String value) {
+  return value.replaceAll(RegExp(r','), '.');
+}
