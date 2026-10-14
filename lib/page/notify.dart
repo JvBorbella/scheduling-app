@@ -33,94 +33,96 @@ class _NotifyListState extends State<NotifyList> {
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
-        onRefresh: () => getNotifications(),
-        strokeWidth: 2,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Column(
-            children: [
-              SearchBarDefault(
-                hintText: 'agendamento',
-                onPressedFilter: () => showDynamicFilterModal(
-                  context: context,
-                  table: 'notifications',
-                  columns: notifications[0]['metadata'],
-                ).then((value) {
-                  if (value != null) {
-                    setState(() {
-                      notifications = value['results'];
-                    });
-                  }
-                }),
-              ),
-              SizedBox(height: 20),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: notifications.length,
-                  itemBuilder: (context, index) {
-                    bool remove = false;
-                    var notify = notifications[index];
-                    return Column(
-                      children: [
-                        DynamicCard(
-                          colorRight: Colors.green,
-                          colorLeft: Colors.red,
-                          remove: remove,
-                          child: CardList(
-                            title: '${notify['title']}',
-                            text: '${notify['message']}\nAgendado para ${notify['schedules_at'] != null ? notify['schedules_at'] : ''}',
-                            textInfo: notify['is_read'] == 1 ? 'Lida ✅' : '',
-                            iconButton: Row(
-                              mainAxisSize: MainAxisSize
-                                  .min, // Evita que a Row quebre o limite horizontal
-                              children: [
-                                IconButton(
-                                  onPressed: () => setState(() {
-                                    visibilityNotify1 = !visibilityNotify1;
-                                  }),
-                                  icon: const Icon(
-                                    Icons.mark_email_read_rounded,
-                                    color: Colors.green,
-                                  ),
+      onRefresh: () => getNotifications(),
+      strokeWidth: 2,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        child: Column(
+          children: [
+            SearchBarDefault(
+              hintText: 'agendamento',
+              onPressedFilter: () =>
+                  showDynamicFilterModal(
+                    context: context,
+                    table: 'notifications',
+                    columns: notifications[0]['metadata'],
+                  ).then((value) {
+                    if (value != null) {
+                      setState(() {
+                        notifications = value['results'];
+                      });
+                    }
+                  }),
+            ),
+            SizedBox(height: 20),
+            Expanded(
+              child: ListView.builder(
+                itemCount: notifications.length,
+                itemBuilder: (context, index) {
+                  bool remove = false;
+                  var notify = notifications[index];
+                  return Column(
+                    children: [
+                      DynamicCard(
+                        colorRight: Colors.green,
+                        colorLeft: Colors.red,
+                        remove: remove,
+                        child: CardList(
+                          title: '${notify['title']}',
+                          text:
+                              '${notify['message']}\nAgendado para ${notify['schedules_at'] != null ? notify['schedules_at'] : ''}',
+                          textInfo: notify['is_read'] == 1 ? 'Lida ✅' : '',
+                          iconButton: Row(
+                            mainAxisSize: MainAxisSize
+                                .min, // Evita que a Row quebre o limite horizontal
+                            children: [
+                              IconButton(
+                                onPressed: () => setState(() {
+                                  visibilityNotify1 = !visibilityNotify1;
+                                }),
+                                icon: const Icon(
+                                  Icons.mark_email_read_rounded,
+                                  color: Colors.green,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          right: () async {
-                            remove = false;
-                            var response = await editData(
-                              notify,
-                              {"is_read": 1},
-                              context,
-                              'notifications',
-                            );
-                            if (response) {
-                              getNotifications();
-                            }
-                          },
-                          left: () async {
-                            remove = true;
-                            var response = await deleteData(
-                              notify,
-                              context,
-                              'notifications',
-                            );
-                            if (response) {
-                              setState(() {
-                                notifications.removeAt(index);
-                              });
-                            }
-                          },
                         ),
-                      ],
-                    );
-                  },
-                ),
+                        right: () async {
+                          remove = false;
+                          var response = await editData(
+                            notify,
+                            {"is_read": 1},
+                            context,
+                            'notifications',
+                          );
+                          if (response) {
+                            getNotifications();
+                          }
+                        },
+                        left: () async {
+                          remove = true;
+                          var response = await deleteData(
+                            notify,
+                            context,
+                            'notifications',
+                          );
+                          if (response) {
+                            setState(() {
+                              notifications.removeAt(index);
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  );
+                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 
   Future<void> getNotifications() async {

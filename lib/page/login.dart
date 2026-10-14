@@ -66,15 +66,22 @@ class _LoginState extends State<Login> {
     });
   }
 
-  void logoUrl() {
-    CompanyRequest().getCompany().then((response) {
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        setState(() {
-          urlImage = data['results'][0]['logo_url'] ?? '';
-        });
-      }
-    });
+  void logoUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString('logo_url') != null) {
+      setState(() {
+        urlImage = prefs.getString('logo_url') ?? '';
+      });
+    } else {
+      CompanyRequest().getCompany().then((response) {
+        if (response.statusCode == 200) {
+          final Map<String, dynamic> data = json.decode(response.body);
+          setState(() {
+            urlImage = data['results'][0]['logo_url'] ?? '';
+          });
+        }
+      });
+    }
   }
 
   @override
@@ -287,12 +294,16 @@ class _LoginState extends State<Login> {
                                     };
                                     final response = await http.post(
                                       resetUri,
-                                      headers: {'Content-Type': 'application/json'},
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
                                       body: jsonEncode(resetBody),
                                     );
                                     await logApiRequest(
                                       url: resetUri,
-                                      headers: {'Content-Type': 'application/json'},
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
                                       body: {
                                         'email': _userController.text,
                                         'code': codeController.text,
@@ -301,7 +312,8 @@ class _LoginState extends State<Login> {
                                       response: response,
                                       tag: 'Login - reset_password_code',
                                     );
-                                    if (response.statusCode == 200) {
+                                    if (jsonDecode(response.body)["ok"] ==
+                                        true) {
                                       sendEmail = false;
                                       Navigator.of(context).pop();
                                       Message.showReturnOverlay(
@@ -327,17 +339,22 @@ class _LoginState extends State<Login> {
                                     };
                                     final response = await http.post(
                                       forgotUri,
-                                      headers: {'Content-Type': 'application/json'},
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
                                       body: jsonEncode(forgotBody),
                                     );
                                     await logApiRequest(
                                       url: forgotUri,
-                                      headers: {'Content-Type': 'application/json'},
+                                      headers: {
+                                        'Content-Type': 'application/json',
+                                      },
                                       body: forgotBody,
                                       response: response,
                                       tag: 'Login - forgot_password_code',
                                     );
-                                    if (response.statusCode == 200) {
+                                    if (jsonDecode(response.body)["ok"] ==
+                                        true) {
                                       setState(() {
                                         sendEmail = true;
                                       });

@@ -35,12 +35,12 @@ class _ModalMod1State extends State<ModalMod1> {
               textAlign: TextAlign.center,
             )
           : null,
-      content: widget.content,
+      content: SingleChildScrollView(child: widget.content),
       actions: [
         ButtonMod1(
           text: widget.textButton ?? 'Salvar',
-          color: ColorsApp.primaryColor,
-          colorLabel: ColorsApp.secondaryColor,
+          color: ColorsApp.secondaryColor,
+          colorLabel: ColorsApp.primaryColor,
           onPressed: widget.onPressed,
         ),
         SizedBox(height: 10),

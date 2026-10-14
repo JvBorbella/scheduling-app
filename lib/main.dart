@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:developer';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -8,19 +9,19 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_expanded_tile/flutter_expanded_tile.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
-import 'package:scheduling/component/button/text_icon_button.dart';
-import 'package:scheduling/component/card/card_list.dart';
-import 'package:scheduling/component/card/dynamic_card.dart';
 import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod2.dart';
-import 'package:scheduling/component/return/messenge.dart';
+import 'package:scheduling/firebase_options.dart';
+import 'package:scheduling/function/firebase_messaging.dart';
 import 'package:scheduling/modals_crud/crud_customer.dart';
 import 'package:scheduling/modals_crud/crud_notify.dart';
 import 'package:scheduling/modals_crud/crud_product.dart';
 import 'package:scheduling/modals_crud/crud_scheduling.dart';
 import 'package:scheduling/modals_crud/crud_services.dart';
 import 'package:scheduling/page/admin.dart';
+import 'package:scheduling/page/products.dart';
 import 'package:scheduling/page/search_agent.dart';
+import 'package:scheduling/page/services.dart';
 import 'package:scheduling/page/users.dart';
 import 'package:scheduling/requests/endpoints.dart';
 import 'package:scheduling/page/client.dart';
@@ -33,18 +34,29 @@ import 'package:scheduling/style/color.dart';
 import 'package:searchfield/searchfield.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Verifica se é mobile antes de inicializar o Firebase
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS)) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await FirebaseMessaging.instance.subscribeToTopic(
+      prefs.getString("tenant_id") ?? "",
+    );
+    await FirebaseMessagingService().initialize();
+  }
   await initializeDateFormatting('pt_BR', null);
   await ColorsApp.getCompany();
   await ColorsApp.setColors();
-  runWithLoggingClient(
-    () => runApp(const MyApp()),
-    forceLog: true,
-  );
+  runWithLoggingClient(() => runApp(const MyApp()), forceLog: true);
 }
 
 class Services {
@@ -70,16 +82,14 @@ class Clients {
   final String name;
   final String phone;
   final String email;
-  final String cpf;
-  final String cnpj;
+  final String cpfCnpj;
 
   Clients({
     this.id = '',
     this.name = '',
     this.phone = '',
     this.email = '',
-    this.cpf = '',
-    this.cnpj = '',
+    this.cpfCnpj = '',
   });
 
   factory Clients.fromJson(Map<String, dynamic> json) {
@@ -88,8 +98,7 @@ class Clients {
       name: json['name']?.toString() ?? '',
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
-      cpf: json['cpf']?.toString() ?? '',
-      cnpj: json['cnpj']?.toString() ?? '',
+      cpfCnpj: json['cpf_cnpj']?.toString() ?? '',
     );
   }
 }
@@ -318,6 +327,9 @@ class _AppState extends State<App> {
               '',
               '',
               '',
+              null,
+              '',
+              '',
               '',
             );
             if (_selectedIndex == 0) {
@@ -539,6 +551,8 @@ class _DrawerTabState extends State<DrawerTab> {
   final TextEditingController _descripTionServiceController =
       TextEditingController();
   final TextEditingController _priceServiceController = TextEditingController();
+  final TextEditingController searchController = TextEditingController();
+  String? avatarUrl;
 
   @override
   void dispose() {
@@ -552,63 +566,62 @@ class _DrawerTabState extends State<DrawerTab> {
 
   Future<void> getPrefs() async {
     prefs = await SharedPreferences.getInstance();
+    setState(() {
+      avatarUrl = prefs?.getString("avatar_url");
+    });
   }
 
-  Future<Map<String, dynamic>> getProducts() async {
-    final prefs = await SharedPreferences.getInstance();
-    await dotenv.load(fileName: ".env");
-    final baseUrl = dotenv.env['BASE_URL']!;
+  // Future<Map<String, dynamic>> getProducts() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   await dotenv.load(fileName: ".env");
+  //   final baseUrl = dotenv.env['BASE_URL']!;
 
-    final response = await http.post(
-      Uri.parse(baseUrl + Endpoints.list),
-      headers: {
-        'Authorization':
-            'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
-        'Content-Type': 'application/json',
-        'X-TENANT-ID': '${prefs.getString('empresa_id')}',
-      },
-      body: jsonEncode({
-        "q":
-            "SELECT * FROM products WHERE tenant_id = '${prefs.getString('tenant_id')}' AND COALESCE(is_deleted,0) <> 1",
-      }),
-    );
+  //   final response = await http.post(
+  //     Uri.parse(baseUrl + Endpoints.list),
+  //     headers: {
+  //       'Authorization':
+  //           'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
+  //       'Content-Type': 'application/json',
+  //       'X-TENANT-ID': '${prefs.getString('empresa_id')}',
+  //     },
+  //     body: jsonEncode({
+  //       "q":
+  //           "SELECT * FROM products WHERE tenant_id = '${prefs.getString('tenant_id')}' AND COALESCE(is_deleted,0) <> 1",
+  //     }),
+  //   );
 
-    return jsonDecode(response.body);
-  }
+  //   return jsonDecode(response.body);
+  // }
 
-  Future<Map<String, dynamic>> getServices() async {
-    final prefs = await SharedPreferences.getInstance();
-    await dotenv.load(fileName: ".env");
-    final baseUrl = dotenv.env['BASE_URL']!;
+  // Future<Map<String, dynamic>> getServices() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   await dotenv.load(fileName: ".env");
+  //   final baseUrl = dotenv.env['BASE_URL']!;
 
-    final response = await http.post(
-      Uri.parse(baseUrl + Endpoints.list),
-      headers: {
-        'Authorization':
-            'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
-        'Content-Type': 'application/json',
-        'X-TENANT-ID': '${prefs.getString('empresa_id')}',
-      },
-      body: jsonEncode({
-        "q":
-            "SELECT * FROM services WHERE tenant_id = '${prefs.getString('tenant_id')}' AND COALESCE(is_deleted,0) <> 1",
-      }),
-    );
-
-    print(jsonDecode(response.body).toString());
-
-    return jsonDecode(response.body);
-  }
+  //   final response = await http.post(
+  //     Uri.parse(baseUrl + Endpoints.list),
+  //     headers: {
+  //       'Authorization':
+  //           'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
+  //       'Content-Type': 'application/json',
+  //       'X-TENANT-ID': '${prefs.getString('empresa_id')}',
+  //     },
+  //     body: jsonEncode({
+  //       "q":
+  //           "SELECT * FROM services WHERE tenant_id = '${prefs.getString('tenant_id')}' AND COALESCE(is_deleted,0) <> 1",
+  //     }),
+  //   );
+  //   return jsonDecode(response.body);
+  // }
 
   //late Future<Map<String, dynamic>> _futureProducts;
 
   @override
   void initState() {
     super.initState();
-    getServices();
-    getProducts();
+    // getServices();
+    // getProducts();
     getPrefs();
-    print(prefs?.getString("avatar_url"));
   }
 
   @override
@@ -640,9 +653,9 @@ class _DrawerTabState extends State<DrawerTab> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  prefs?.getString('avatar_url') != null
+                  avatarUrl != null
                       ? Image.network(
-                          prefs!.getString('avatar_url')!,
+                          avatarUrl ?? '',
                           width: 50,
                           height: 50,
                           fit: BoxFit.cover,
@@ -859,7 +872,14 @@ class _DrawerTabState extends State<DrawerTab> {
                         context: context,
                         builder: (context) => StatefulBuilder(
                           builder: (context, setState) {
-                            return CrudServices.modal1(context, '', '', '', 0);
+                            return CrudServices.modal1(
+                              context,
+                              '',
+                              '',
+                              '',
+                              0,
+                              '',
+                            );
                           },
                         ),
                       );
@@ -883,205 +903,8 @@ class _DrawerTabState extends State<DrawerTab> {
                       vertical: 4,
                     ),
                     onTap: () async {
-                      var serviceData = await getServices();
-
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) => StatefulBuilder(
-                          builder: (BuildContext context, StateSetter setState) {
-                            return ModalMod2(
-                              title: "Serviços cadastrados",
-                              content: SizedBox(
-                                width: double.maxFinite,
-                                child: Column(
-                                  spacing: 10,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    ListView.builder(
-                                      shrinkWrap: true,
-                                      itemCount: serviceData['results'].length,
-                                      itemBuilder: (BuildContext context, int index) {
-                                        var service =
-                                            serviceData['results'][index];
-                                        var remove = false;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                            bottom: 10,
-                                          ),
-                                          child: DynamicCard(
-                                            colorRight: Colors.orange,
-                                            colorLeft: Colors.red,
-                                            remove: remove,
-                                            child: CardList(
-                                              title: service['name'],
-                                              text:
-                                                  'Descrição: ${service['description']}\nPreço: ${service['price']}',
-                                              iconButton: IconButton(
-                                                onPressed: () =>
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (context) =>
-                                                          CrudServices.modal1(
-                                                            context,
-                                                            service['services_id'],
-                                                            service['name'],
-                                                            service['description'],
-                                                            double.parse(
-                                                              service['price'],
-                                                            ),
-                                                          ),
-                                                    ).then((_) async {
-                                                      serviceData =
-                                                          await getProducts();
-                                                      setState(() {});
-                                                    }),
-                                                icon: Icon(
-                                                  Icons.edit,
-                                                  color:
-                                                      ColorsApp.secondaryColor,
-                                                ),
-                                              ),
-                                              textInfo:
-                                                  'Cód: ${service['code'].toString()}',
-                                            ),
-                                            right: () {
-                                              remove = false;
-                                              showDialog(
-                                                context: context,
-                                                builder: (context) =>
-                                                    CrudServices.modal1(
-                                                      context,
-                                                      service['services_id'],
-                                                      service['name'],
-                                                      service['description'] ??
-                                                          '',
-                                                      double.parse(
-                                                        service['price'],
-                                                      ),
-                                                    ),
-                                              ).then((_) async {
-                                                serviceData =
-                                                    await getServices();
-                                                setState(() {});
-                                              });
-                                            },
-                                            left: () async {
-                                              showDialog(
-                                                context: context,
-                                                builder: (context) => ModalMod1(
-                                                  title: 'Excluir Serviço',
-                                                  content: Text(
-                                                    'Tem certeza que deseja excluir o serviço?',
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                      color: ColorsApp
-                                                          .secondaryColor,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                  textButton: 'Excluir',
-                                                  onPressed: () async {
-                                                    final prefs =
-                                                        await SharedPreferences.getInstance();
-                                                    await dotenv.load(
-                                                      fileName: ".env",
-                                                    );
-                                                    final baseUrl =
-                                                        dotenv.env['BASE_URL']!;
-                                                    try {
-                                                      final response = await http.post(
-                                                        Uri.parse(
-                                                          baseUrl +
-                                                              Endpoints.delete,
-                                                        ),
-                                                        headers: {
-                                                          'Authorization':
-                                                              'Bearer ${prefs.getString('access_token') ?? prefs.getString('refresh_token')}',
-                                                          'Content-Type':
-                                                              'application/json',
-                                                          'X-TENANT-ID':
-                                                              '${prefs.getString('tenant_id')}',
-                                                        },
-                                                        body: jsonEncode({
-                                                          "tabela": "services",
-                                                          "id":
-                                                              service['services_id'],
-                                                        }),
-                                                      );
-                                                      if (response.statusCode ==
-                                                          200) {
-                                                        Message.showReturnOverlay(
-                                                          context,
-                                                          Colors.green,
-                                                          Icons.check,
-                                                          "Serviço removido!",
-                                                        );
-                                                      } else {
-                                                        Message.showReturnOverlay(
-                                                          context,
-                                                          Colors.red,
-                                                          Icons.error,
-                                                          response.body,
-                                                        );
-                                                      }
-                                                    } catch (e) {
-                                                      log(e.toString());
-                                                    }
-                                                  },
-                                                ),
-                                              ).then((_) async {
-                                                serviceData =
-                                                    await getServices();
-                                                setState(() {});
-                                              });
-                                              ;
-                                            },
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    TextIconButtonMod1(
-                                      text: "Enviar catálogo por WhatsApp",
-                                      icon: Symbols.forward,
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => App(
-                                              selectedIndex: 3,
-                                              child: MessengeList(
-                                                initialText:
-                                                    "Catálogo de Serviços:\n\n" +
-                                                    (serviceData['results']
-                                                            as List)
-                                                        .map(
-                                                          (s) =>
-                                                              "${s['name']} - R\$${s['price']}",
-                                                        )
-                                                        .join("\n"),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      color: ColorsApp.secondaryColor,
-                                      colorLabel: ColorsApp.secondaryColor,
-                                      width: double.maxFinite,
-                                    ),
-                                    ButtonMod1(
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                      },
-                                      text: "Fechar",
-                                      colorLabel: Colors.white,
-                                      color: Colors.red,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => ServicesPage()),
                       );
                     },
                   ),
@@ -1173,7 +996,15 @@ class _DrawerTabState extends State<DrawerTab> {
                         context: context,
                         builder: (context) => StatefulBuilder(
                           builder: (context, setState) {
-                            return CrudProduct.modal1(context, '', '', '', 0);
+                            return CrudProduct.modal1(
+                              context,
+                              '',
+                              '',
+                              '',
+                              0,
+                              0,
+                              '',
+                            );
                           },
                         ),
                       );
@@ -1197,203 +1028,8 @@ class _DrawerTabState extends State<DrawerTab> {
                       vertical: 4,
                     ),
                     onTap: () async {
-                      var productData = await getProducts();
-
-                      showDialog(
-                        context: context,
-                        builder: (BuildContext context) => StatefulBuilder(
-                          builder: (BuildContext context, StateSetter setState) {
-                            return ModalMod2(
-                              title: "Produtos cadastrados",
-                              content: SizedBox(
-                                width: double.maxFinite,
-                                child: Column(
-                                  spacing: 10,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    ListView.builder(
-                                      shrinkWrap: true,
-                                      itemCount: productData['results'].length,
-                                      itemBuilder: (BuildContext context, int index) {
-                                        var product =
-                                            productData['results'][index];
-                                        var remove = false;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                            bottom: 10,
-                                          ),
-                                          child: DynamicCard(
-                                            colorRight: Colors.orange,
-                                            colorLeft: Colors.red,
-                                            remove: remove,
-                                            child: CardList(
-                                              title: product['name'],
-                                              text:
-                                                  'Descrição: ${product['description']}\nPreço: ${product['price']}',
-                                              iconButton: IconButton(
-                                                onPressed: () =>
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (context) =>
-                                                          CrudServices.modal1(
-                                                            context,
-                                                            product['products_id'],
-                                                            product['name'],
-                                                            product['description'],
-                                                            double.parse(
-                                                              product['price'],
-                                                            ),
-                                                          ),
-                                                    ).then((_) async {
-                                                      productData =
-                                                          await getProducts();
-                                                      setState(() {});
-                                                    }),
-                                                icon: Icon(
-                                                  Icons.edit,
-                                                  color:
-                                                      ColorsApp.secondaryColor,
-                                                ),
-                                              ),
-                                              textInfo:
-                                                  'Cód: ${product['code'].toString()}',
-                                            ),
-                                            right: () async {
-                                              showDialog(
-                                                context: context,
-                                                builder: (context) =>
-                                                    CrudServices.modal1(
-                                                      context,
-                                                      product['products_id'],
-                                                      product['name'],
-                                                      product['description'],
-                                                      double.parse(
-                                                        product['price'] ??
-                                                            '0.00',
-                                                      ),
-                                                    ),
-                                              ).then((_) async {
-                                                productData =
-                                                    await getProducts();
-                                                setState(() {});
-                                              });
-                                            },
-                                            left: () async {
-                                              showDialog(
-                                                context: context,
-                                                builder: (context) => ModalMod1(
-                                                  title: 'Excluir Item',
-                                                  content: Text(
-                                                    'Tem certeza que deseja excluir o item?',
-                                                    textAlign: TextAlign.center,
-                                                    style: TextStyle(
-                                                      color: ColorsApp
-                                                          .secondaryColor,
-                                                      fontSize: 16,
-                                                    ),
-                                                  ),
-                                                  textButton: 'Excluir',
-                                                  onPressed: () async {
-                                                    final prefs =
-                                                        await SharedPreferences.getInstance();
-                                                    await dotenv.load(
-                                                      fileName: ".env",
-                                                    );
-                                                    final baseUrl =
-                                                        dotenv.env['BASE_URL']!;
-                                                    try {
-                                                      final response = await http.post(
-                                                        Uri.parse(
-                                                          baseUrl +
-                                                              Endpoints.delete,
-                                                        ),
-                                                        headers: {
-                                                          'Authorization':
-                                                              'Bearer ${prefs.getString('access_token') ?? prefs.getString('refresh_token')}',
-                                                          'Content-Type':
-                                                              'application/json',
-                                                          'X-TENANT-ID':
-                                                              '${prefs.getString('tenant_id')}',
-                                                        },
-                                                        body: jsonEncode({
-                                                          "tabela": "products",
-                                                          "id":
-                                                              product['products_id'],
-                                                        }),
-                                                      );
-                                                      if (response.statusCode ==
-                                                          200) {
-                                                        Message.showReturnOverlay(
-                                                          context,
-                                                          Colors.green,
-                                                          Icons.check,
-                                                          "Item removido!",
-                                                        );
-                                                      } else {
-                                                        Message.showReturnOverlay(
-                                                          context,
-                                                          Colors.red,
-                                                          Icons.error,
-                                                          response.body,
-                                                        );
-                                                      }
-                                                    } catch (e) {
-                                                      log(e.toString());
-                                                    }
-                                                  },
-                                                ),
-                                              ).then((_) async {
-                                                productData =
-                                                    await getProducts();
-                                                setState(() {});
-                                              });
-                                            },
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    TextIconButtonMod1(
-                                      text: "Enviar catálogo por WhatsApp",
-                                      icon: Symbols.forward,
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => App(
-                                              selectedIndex: 3,
-                                              child: MessengeList(
-                                                initialText:
-                                                    "Catálogo de Produtos:\n\n" +
-                                                    (productData['results']
-                                                            as List)
-                                                        .map(
-                                                          (p) =>
-                                                              "${p['name']} - R\$${p['price']}",
-                                                        )
-                                                        .join("\n"),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      color: ColorsApp.secondaryColor,
-                                      colorLabel: ColorsApp.secondaryColor,
-                                      width: double.maxFinite,
-                                    ),
-                                    ButtonMod1(
-                                      onPressed: () {
-                                        Navigator.of(context).pop();
-                                      },
-                                      text: "Fechar",
-                                      colorLabel: Colors.white,
-                                      color: Colors.red,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (context) => ProductsPage()),
                       );
                     },
                   ),

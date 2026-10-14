@@ -3,13 +3,14 @@ import 'package:scheduling/style/color.dart';
 import 'package:scheduling/style/width.dart';
 
 class CardList extends StatefulWidget {
-  final String? title, text, textInfo;
+  final String? title, text, textInfo, imageUrl;
   final dynamic onTap, iconButton, onLongPress;
   const CardList({
     super.key,
     this.title,
     this.text,
     this.textInfo,
+    this.imageUrl,
     this.onTap,
     this.iconButton,
     this.onLongPress,
@@ -37,16 +38,28 @@ class _CardListState extends State<CardList> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                titleCard(widget.title ?? ''),
-                SizedBox(
-                  width: Responsive.w(context, 180),
-                  child: textCard(widget.text ?? '', TextOverflow.ellipsis),
-                )
-              ],
+            if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty)
+              ClipOval(
+                child: SizedBox(
+                  width: Responsive.w(context, 70),
+                  height: Responsive.w(context, 70),
+                  child: Image.network(widget.imageUrl!, fit: BoxFit.cover),
+                ),
+              ),
+            SizedBox(
+              width: Responsive.w(context, 150),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  titleCard(widget.title ?? ''),
+                  textCard(
+                    widget.text ?? '',
+                    TextOverflow.clip,
+                    TextAlign.left,
+                  ),
+                ],
+              ),
             ),
             Column(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -55,9 +68,16 @@ class _CardListState extends State<CardList> {
               children: [
                 widget.iconButton ?? SizedBox(),
                 SizedBox(
-                  width: Responsive.w(context, 140),
-                  child: textCard(widget.textInfo ?? '', TextOverflow.visible),
-                )
+                  width: Responsive.w(context, 100),
+                  child: Align(
+                    alignment: Alignment.bottomRight,
+                    child: textCard(
+                      widget.textInfo ?? '',
+                      TextOverflow.visible,
+                      TextAlign.right,
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
@@ -66,10 +86,11 @@ class _CardListState extends State<CardList> {
     );
   }
 
-  Widget textCard(String text, dynamic overflow) {
+  Widget textCard(String text, dynamic overflow, textAlign) {
     return Text(
       text,
       overflow: overflow ?? TextOverflow.visible,
+      textAlign: textAlign ?? TextAlign.left,
       style: TextStyle(fontSize: 10, color: ColorsApp.secondaryColor),
     );
   }

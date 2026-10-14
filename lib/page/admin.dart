@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:scheduling/component/button/button_mod1.dart';
 import 'package:scheduling/component/card/card_list.dart';
+import 'package:scheduling/component/modal/modal_mod1.dart';
 import 'package:scheduling/component/modal/modal_mod2.dart';
 import 'package:scheduling/component/return/messenge.dart';
 import 'package:scheduling/component/text_field/text_field_mod1.dart';
@@ -23,6 +24,7 @@ import 'package:scheduling/requests/company.dart';
 import 'package:scheduling/requests/endpoints.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scheduling/style/color.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -57,7 +59,9 @@ class _AdminPageState extends State<AdminPage> {
       _secondaryColor = '',
       _nomeUsuario = '',
       _usuarioId = '',
-      _companyName = '';
+      _companyName = '',
+      _personCompanyId = '',
+      urlImage = '';
 
   bool paymentEnabled = false;
 
@@ -91,12 +95,12 @@ class _AdminPageState extends State<AdminPage> {
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
-          _imageController.text = image.name;
+          // _imageController.text = image.name;
         });
-        print('Imagem selecionada: ${image.path}');
+        log('Imagem selecionada: ${image.path}');
       }
     } catch (e) {
-      print('Erro ao selecionar imagem: $e');
+      log('Erro ao selecionar imagem: $e');
     }
   }
 
@@ -138,16 +142,26 @@ class _AdminPageState extends State<AdminPage> {
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
         setState(() {
-          //_cnpjController.text = data['results'][0]['cnpj']; //❌
+          _personCompanyId = data['results'][0]['person_id'];
+          _cnpjController.text = data['results'][0]['cpf_cnpj']; //❌
           _nameController.text = data['results'][0]['name'];
           _companyNameController.text = data['results'][0]['trade_name'];
-          //_phoneController.text = data['results'][0]['phone']; //❌
-          //_emailController.text = data['results'][0]['email']; //❌
-          _primaryColor = data['results'][0]['primary_color'];
-          _secondaryColor = data['results'][0]['secondary_color'];
-          _primaryController.color = hexToColor(_primaryColor);
-          _secondaryController.color = hexToColor(_secondaryColor);
+          _phoneController.text = data['results'][0]['phone']; //❌
+          _emailController.text = data['results'][0]['email']; //❌
+          _primaryColor = data['results'][0]['primary_color'] ?? '#ffffff';
+          _secondaryColor = data['results'][0]['secondary_color'] ?? '#000000';
           _imageController.text = data['results'][0]['logo_url'];
+          urlImage = data['results'][0]['logo_url'];
+          _cepController.text = data['results'][0]['address_zip_code'];
+          _addressController.text = data['results'][0]['address_street'];
+          _complementoController.text =
+              data['results'][0]['address_complement'];
+          _bairroController.text = data['results'][0]['address_neighborhood'];
+          _numeroController.text = data['results'][0]['address_number']; //❌
+          _cidadeController.text = data['results'][0]['address_city']; //❌
+          _estadoController.text = data['results'][0]['address_state']; //❌
+          // _primaryController.color = hexToColor(_primaryColor);
+          // _secondaryController.color = hexToColor(_secondaryColor);
         });
       }
     });
@@ -164,8 +178,7 @@ class _AdminPageState extends State<AdminPage> {
       'X-TENANT-ID': "${prefs.getString("tenant_id")}",
     };
     final body = {
-      'q':
-          'SELECT * FROM quick_responses WHERE COALESCE(is_deleted, 0) <> 1;',
+      'q': 'SELECT * FROM quick_responses WHERE COALESCE(is_deleted, 0) <> 1;',
     };
     final response = await http.post(
       uri,
@@ -339,7 +352,33 @@ class _AdminPageState extends State<AdminPage> {
                               labelText: 'CEP',
                               keyboardType: TextInputType.number,
                               suffixIcon: IconButton(
-                                onPressed: () {},
+                                onPressed: () async {
+                                  final response = await http.get(
+                                    Uri.parse(
+                                      'https://viacep.com.br/ws/${unMasked(_cepController.text)}/json/',
+                                    ),
+                                  );
+
+                                  if (response.statusCode == 200) {
+                                    final Map<String, dynamic> data = json
+                                        .decode(response.body);
+                                    setState(() {
+                                      _addressController.text =
+                                          data['logradouro'];
+                                      _bairroController.text = data['bairro'];
+                                      _cidadeController.text =
+                                          data['localidade'];
+                                      _estadoController.text = data['uf'];
+                                    });
+                                  } else {
+                                    Message.showReturnOverlay(
+                                      context,
+                                      Colors.red,
+                                      Icons.error,
+                                      'CEP não encontrado!',
+                                    );
+                                  }
+                                },
                                 icon: const Icon(Icons.search),
                               ),
                               inputFormatters: [CepMask()],
@@ -401,7 +440,8 @@ class _AdminPageState extends State<AdminPage> {
                                             height: 50,
                                             fit: BoxFit.cover,
                                           )
-                                        : _imageController.text != ''
+                                        : _imageController.text != 'null' &&
+                                              _imageController.text != ''
                                         ? Image.network(
                                             _imageController.text,
                                             width: 50,
@@ -414,7 +454,7 @@ class _AdminPageState extends State<AdminPage> {
                                             color: ColorsApp.secondaryColor,
                                           ),
                                     label: _selectedImage != null
-                                        ? _selectedImage!.path
+                                        ? _selectedImage!.path.split('\\').last
                                         : 'Logo da empresa',
                                     onTap: () {
                                       _pickImage();
@@ -452,37 +492,33 @@ class _AdminPageState extends State<AdminPage> {
                                                                 context,
                                                                 setModalState,
                                                               ) {
-                                                                return ModalMod2(
+                                                                return ModalMod1(
                                                                   content: Column(
                                                                     mainAxisSize:
                                                                         MainAxisSize
                                                                             .min,
                                                                     children: [
                                                                       CircleColorPicker(
+                                                                        textStyle: TextStyle(
+                                                                          color:
+                                                                              ColorsApp.secondaryColor,
+                                                                        ),
                                                                         controller:
                                                                             _primaryController,
                                                                         onChanged: (color) {
                                                                           setModalState(
                                                                             () {
-                                                                              _primaryColor = '#${color.value.toRadixString(16).substring(2)}';
+                                                                              _primaryColor = '#${color.value.toRadixString(16).substring(2)}'; //value.toRadixString(16).substring(2)}';
                                                                             },
                                                                           );
                                                                         },
                                                                       ),
-                                                                      ButtonMod1(
-                                                                        color: Colors
-                                                                            .black,
-                                                                        onPressed: () =>
-                                                                            Navigator.pop(
-                                                                              context,
-                                                                            ),
-                                                                        text:
-                                                                            'Salvar',
-                                                                        width: double
-                                                                            .infinity,
-                                                                      ),
                                                                     ],
                                                                   ),
+                                                                  onPressed: () =>
+                                                                      Navigator.pop(
+                                                                        context,
+                                                                      ),
                                                                 );
                                                               },
                                                         );
@@ -503,7 +539,7 @@ class _AdminPageState extends State<AdminPage> {
                                                                 context,
                                                                 setModalState,
                                                               ) {
-                                                                return ModalMod2(
+                                                                return ModalMod1(
                                                                   content: Column(
                                                                     mainAxisSize:
                                                                         MainAxisSize
@@ -511,6 +547,10 @@ class _AdminPageState extends State<AdminPage> {
                                                                     spacing: 10,
                                                                     children: [
                                                                       CircleColorPicker(
+                                                                        textStyle: TextStyle(
+                                                                          color:
+                                                                              ColorsApp.secondaryColor,
+                                                                        ),
                                                                         controller:
                                                                             _secondaryController,
                                                                         onChanged: (color) {
@@ -521,20 +561,14 @@ class _AdminPageState extends State<AdminPage> {
                                                                           );
                                                                         },
                                                                       ),
-                                                                      ButtonMod1(
-                                                                        color: Colors
-                                                                            .black,
-                                                                        onPressed: () =>
-                                                                            Navigator.pop(
-                                                                              context,
-                                                                            ),
-                                                                        text:
-                                                                            'Salvar',
-                                                                        width: double
-                                                                            .infinity,
-                                                                      ),
                                                                     ],
                                                                   ),
+                                                                  onPressed: () =>
+                                                                      Navigator.pop(
+                                                                        context,
+                                                                      ),
+                                                                  textButton:
+                                                                      'Salvar',
                                                                 );
                                                               },
                                                         );
@@ -566,7 +600,7 @@ class _AdminPageState extends State<AdminPage> {
                                               border: Border.all(
                                                 color: Colors.grey[300]!,
                                               ),
-                                              color: _primaryColor == ''
+                                              color: _primaryColor.isEmpty
                                                   ? Colors.transparent
                                                   : hexToColor(_primaryColor),
                                             ),
@@ -665,221 +699,235 @@ class _AdminPageState extends State<AdminPage> {
                                 final token =
                                     prefs.getString("access_token") ??
                                     prefs.getString("refresh_token");
-                                String urlImage = '';
-                                  final uploadUri = Uri.parse(
-                                    '${baseUrl}${Endpoints.uploadImage}',
+                                final uploadUri = Uri.parse(
+                                  '${baseUrl}${Endpoints.uploadImage}',
+                                );
+                                try {
+                                  var request = http.MultipartRequest(
+                                    'POST',
+                                    uploadUri,
                                   );
-                                  try {
-                                    var request = http.MultipartRequest(
-                                      'POST',
-                                      uploadUri,
-                                    );
-                                    request.headers.addAll({
-                                      'Authorization': 'Bearer $token',
-                                    });
-                                    if (_selectedImage != null) {
-                                      String ext = _selectedImage!.path
-                                          .split('.')
-                                          .last
-                                          .toLowerCase();
-                                      MediaType mediaType = MediaType(
-                                        'image',
-                                        ext == 'png' ? 'png' : 'jpeg',
-                                      );
-                                      request.files.add(
-                                        http.MultipartFile.fromBytes(
-                                          'file',
-                                          await _selectedImage!.readAsBytes(),
-                                          filename: _selectedImage!.path
-                                              .split('/')
-                                              .last,
-                                          contentType: mediaType,
-                                        ),
-                                      );
-                                    }
-                                    request.fields['folder'] = 'empresa';
-                                    request.fields['usuario_id'] = _usuarioId;
-                                    final clientKey = prefs.getString(
-                                      "client_key",
-                                    );
-                                    if (clientKey != null) {
-                                      request.fields['client_key'] = clientKey;
-                                    }
-                                    request.fields['flagpublico'] = '1';
-                                    request.fields['cnpj'] =
-                                        prefs.getString("cnpjCompany") ?? "";
-                                    var streamedResponse = await request.send();
-                                    var response = await http.Response.fromStream(
-                                      streamedResponse,
-                                    );
-                                    await logApiRequest(
-                                      url: uploadUri,
-                                      headers: request.headers,
-                                      body: {
-                                        ...request.fields,
-                                        'file': _selectedImage?.path.split('/').last ?? '',
-                                      },
-                                      response: response,
-                                      tag: 'AdminPage.uploadImage (Empresa)',
-                                    );
-                                    if (response.statusCode == 200) {
-                                      final dynamic decoded = json.decode(
-                                        response.body,
-                                      );
-                                      urlImage = decoded['url'];
-                                    } else {
-                                      log('log envio imagem: ${response.body}');
-                                    }
-                                  } catch (e) {
-                                    await logApiRequest(
-                                      url: uploadUri,
-                                      error: e.toString(),
-                                      tag: 'AdminPage.uploadImage (ERROR)',
-                                    );
-                                    Message.showReturnOverlay(
-                                      context,
-                                      Colors.red,
-                                      Icons.error,
-                                      e.toString(),
-                                    );
-                                  }
-                                  final editCompanyUri = Uri.parse(baseUrl + Endpoints.edit);
-                                  final editCompanyHeaders = {
-                                    'Content-Type': 'application/json',
+                                  request.headers.addAll({
                                     'Authorization': 'Bearer $token',
-                                    'X-TENANT-ID':
-                                        "${prefs.getString("tenant_id")}",
-                                  };
-                                  final editCompanyBody = {
-                                    "tabela": "companies",
-                                    "id": "${prefs.getString("company_id")}",
-                                    "values": {
-                                      "name": _nameController.text,
-                                      "trade_name":
-                                          _companyNameController.text,
-                                      "cnpj": unMasked(_cnpjController.text),
-                                      "email": _emailController.text,
-                                      "phone": unMasked(
-                                        _phoneController.text,
+                                  });
+                                  if (_selectedImage != null) {
+                                    String ext = _selectedImage!.path
+                                        .split('.')
+                                        .last
+                                        .toLowerCase();
+                                    MediaType mediaType = MediaType(
+                                      'image',
+                                      ext == 'png' ? 'png' : 'jpeg',
+                                    );
+                                    request.files.add(
+                                      http.MultipartFile.fromBytes(
+                                        'file',
+                                        await _selectedImage!.readAsBytes(),
+                                        filename: _selectedImage!.path
+                                            .split('\\')
+                                            .last,
+                                        contentType: mediaType,
                                       ),
-                                      "zip_code": unMasked(
-                                        _cepController.text,
-                                      ),
-                                      "street": _addressController.text,
-                                      "street_number": _numeroController.text,
-                                      "complement":
-                                          _complementoController.text,
-                                      "neighborhood": _bairroController.text,
-                                      "city": _cidadeController.text,
-                                      "state": _estadoController.text,
-                                      "primary_color": _primaryColor,
-                                      "secondary_color": _secondaryColor,
-                                      "logo_url": urlImage,
-                                      "is_headquarters": 0,
-                                    },
-                                  };
-                                  try {
-                                    final response = await http.post(
-                                      editCompanyUri,
-                                      headers: editCompanyHeaders,
-                                      body: json.encode(editCompanyBody),
-                                    );
-                                    await logApiRequest(
-                                      url: editCompanyUri,
-                                      headers: editCompanyHeaders,
-                                      body: editCompanyBody,
-                                      response: response,
-                                      tag: 'AdminPage.saveCompany',
-                                    );
-                                    if (response.statusCode == 200) {
-                                      Message.showReturnOverlay(
-                                        context,
-                                        Colors.green,
-                                        Icons.check,
-                                        "Filial cadastrada com sucesso!",
-                                      );
-                                      prefs.setString(
-                                        "cnpjCompany",
-                                        unMasked(_cnpjController.text)!,
-                                      );
-                                    } else {
-                                      Message.showReturnOverlay(
-                                        context,
-                                        Colors.red,
-                                        Icons.error,
-                                        response.body.toString(),
-                                      );
-                                    }
-                                  } catch (e) {
-                                    await logApiRequest(
-                                      url: editCompanyUri,
-                                      headers: editCompanyHeaders,
-                                      body: editCompanyBody,
-                                      error: e.toString(),
-                                      tag: 'AdminPage.saveCompany (ERROR)',
-                                    );
-                                    Message.showReturnOverlay(
-                                      context,
-                                      Colors.red,
-                                      Icons.error,
-                                      e.toString(),
                                     );
                                   }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Respostas rápidas
-                        AdminTile(
-                          title: 'Respostas rápidas',
-                          initialExpanded: false,
-                          content: Column(
-                            spacing: 10,
-                            children: [
-                              TextFieldMod1(
-                                controller: _quickMessageTitleController,
-                                labelText: 'Título',
-                              ),
-                              TextFieldMod1(
-                                controller: _quickMessageController,
-                                labelText: 'Mensagem',
-                                maxLines: 5,
-                              ),
-                              ButtonMod1(
-                                onPressed: () async {
-                                  final prefs =
-                                      await SharedPreferences.getInstance();
-                                  final baseUrl = dotenv.env['BASE_URL'];
-                                  final insertQuickUri = Uri.parse('$baseUrl${Endpoints.insert}');
-                                  final insertQuickHeaders = {
-                                    'Authorization':
-                                        'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
-                                    'Content-Type': 'application/json',
-                                    'X-TENANT-ID':
-                                        "${prefs.getString("tenant_id")}",
-                                  };
-                                  final insertQuickBody = {
-                                    'tabela': "quick_responses",
-                                    "values": {
-                                      "title":
-                                          _quickMessageTitleController.text,
-                                      "content": _quickMessageController.text,
-                                    },
-                                  };
-                                  final response = await http.post(
-                                    insertQuickUri,
-                                    headers: insertQuickHeaders,
-                                    body: jsonEncode(insertQuickBody),
+                                  request.fields['folder'] = 'empresa';
+                                  request.fields['usuario_id'] = _usuarioId;
+                                  final clientKey = prefs.getString(
+                                    "client_key",
+                                  );
+                                  if (clientKey != null) {
+                                    request.fields['client_key'] = clientKey;
+                                  }
+                                  request.fields['flagpublico'] = '1';
+                                  var streamedResponse = await request.send();
+                                  var response = await http.Response.fromStream(
+                                    streamedResponse,
                                   );
                                   await logApiRequest(
-                                    url: insertQuickUri,
-                                    headers: insertQuickHeaders,
-                                    body: insertQuickBody,
+                                    url: uploadUri,
+                                    headers: request.headers,
+                                    body: {
+                                      ...request.fields,
+                                      'file':
+                                          _selectedImage?.path
+                                              .split('/')
+                                              .last ??
+                                          '',
+                                    },
                                     response: response,
-                                    tag: 'AdminPage.insertQuickResponse',
+                                    tag: 'AdminPage.uploadImage (Empresa)',
                                   );
                                   if (response.statusCode == 200) {
+                                    final dynamic decoded = json.decode(
+                                      response.body,
+                                    );
+                                    urlImage = decoded['url'];
+                                    await prefs.setString('logo_url', urlImage);
+                                  } else {
+                                    log('log envio imagem: ${response.body}');
+                                  }
+                                } catch (e) {
+                                  await logApiRequest(
+                                    url: uploadUri,
+                                    error: e.toString(),
+                                    tag: 'AdminPage.uploadImage (ERROR)',
+                                  );
+                                  Message.showReturnOverlay(
+                                    context,
+                                    Colors.red,
+                                    Icons.error,
+                                    e.toString(),
+                                  );
+                                }
+                                final editCompanyUri = Uri.parse(
+                                  baseUrl + Endpoints.edit,
+                                );
+                                final editCompanyHeaders = {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': 'Bearer $token',
+                                  'X-TENANT-ID':
+                                      "${prefs.getString("tenant_id")}",
+                                };
+                                final editCompanyBody = {
+                                  "tabela": "companies",
+                                  "id": "${prefs.getString("company_id")}",
+                                  "values": {
+                                    "name": _nameController.text,
+                                    "trade_name": _companyNameController.text,
+                                    "primary_color": _primaryColor,
+                                    "secondary_color": _secondaryColor,
+                                    "logo_url": urlImage,
+                                  },
+                                };
+                                final editPersonsBody = {
+                                  "tabela": "persons",
+                                  "id": _personCompanyId,
+                                  "values": {
+                                    "cpf_cnpj": unMasked(_cnpjController.text),
+                                    "email": _emailController.text,
+                                    "phone": unMasked(_phoneController.text),
+                                    "address_zip_code": unMasked(
+                                      _cepController.text,
+                                    ),
+                                    "address_street": _addressController.text,
+                                    "address_number": _numeroController.text,
+                                    "address_complement":
+                                        _complementoController.text,
+                                    "address_neighborhood":
+                                        _bairroController.text,
+                                    "address_city": _cidadeController.text,
+                                    "address_state": _estadoController.text,
+                                  },
+                                };
+                                try {
+                                  final response = await http.post(
+                                    editCompanyUri,
+                                    headers: editCompanyHeaders,
+                                    body: json.encode(editCompanyBody),
+                                  );
+                                  final responsePersons = await http.post(
+                                    editCompanyUri,
+                                    headers: editCompanyHeaders,
+                                    body: json.encode(editPersonsBody),
+                                  );
+                                  await logApiRequest(
+                                    url: editCompanyUri,
+                                    headers: editCompanyHeaders,
+                                    body: editCompanyBody,
+                                    response: response,
+                                    tag: 'AdminPage.saveCompany',
+                                  );
+                                  if (response.statusCode == 200 &&
+                                      responsePersons.statusCode == 200) {
+                                    Message.showReturnOverlay(
+                                      context,
+                                      Colors.green,
+                                      Icons.check,
+                                      "Filial cadastrada com sucesso!",
+                                    );
+                                    prefs.setString(
+                                      "cnpjCompany",
+                                      unMasked(_cnpjController.text)!,
+                                    );
+                                  } else {
+                                    Message.showReturnOverlay(
+                                      context,
+                                      Colors.red,
+                                      Icons.error,
+                                      response.body.toString(),
+                                    );
+                                  }
+                                } catch (e) {
+                                  await logApiRequest(
+                                    url: editCompanyUri,
+                                    headers: editCompanyHeaders,
+                                    body: editCompanyBody,
+                                    error: e.toString(),
+                                    tag: 'AdminPage.saveCompany (ERROR)',
+                                  );
+                                  Message.showReturnOverlay(
+                                    context,
+                                    Colors.red,
+                                    Icons.error,
+                                    e.toString(),
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Respostas rápidas
+                      AdminTile(
+                        title: 'Respostas rápidas',
+                        initialExpanded: false,
+                        content: Column(
+                          spacing: 10,
+                          children: [
+                            TextFieldMod1(
+                              controller: _quickMessageTitleController,
+                              labelText: 'Título',
+                            ),
+                            TextFieldMod1(
+                              controller: _quickMessageController,
+                              labelText: 'Mensagem',
+                              maxLines: 5,
+                            ),
+                            ButtonMod1(
+                              onPressed: () async {
+                                final prefs =
+                                    await SharedPreferences.getInstance();
+                                final baseUrl = dotenv.env['BASE_URL'];
+                                final insertQuickUri = Uri.parse(
+                                  '$baseUrl${Endpoints.insert}',
+                                );
+                                final insertQuickHeaders = {
+                                  'Authorization':
+                                      'Bearer ${prefs.getString("access_token") ?? prefs.getString("refresh_token")}',
+                                  'Content-Type': 'application/json',
+                                  'X-TENANT-ID':
+                                      "${prefs.getString("tenant_id")}",
+                                };
+                                final insertQuickBody = {
+                                  'tabela': "quick_responses",
+                                  "values": {
+                                    "title": _quickMessageTitleController.text,
+                                    "content": _quickMessageController.text,
+                                  },
+                                };
+                                final response = await http.post(
+                                  insertQuickUri,
+                                  headers: insertQuickHeaders,
+                                  body: jsonEncode(insertQuickBody),
+                                );
+                                await logApiRequest(
+                                  url: insertQuickUri,
+                                  headers: insertQuickHeaders,
+                                  body: insertQuickBody,
+                                  response: response,
+                                  tag: 'AdminPage.insertQuickResponse',
+                                );
+                                if (response.statusCode == 200) {
                                   Message.showReturnOverlay(
                                     context,
                                     Colors.green,
@@ -935,13 +983,12 @@ class _AdminPageState extends State<AdminPage> {
                                             color: Colors.amber,
                                           ),
                                           IconButton(
-                                            onPressed: () => {
-                                              deleteQuickResponse(
+                                            onPressed: () async {
+                                              await deleteQuickResponse(
                                                 quickResponse['quick_responses_id'],
-                                              ),
-                                              setState(() {
-                                                getQuickResponses();
-                                              }),
+                                              );
+                                              await getQuickResponses();
+                                              setState(() {});
                                             },
                                             icon: Icon(Icons.delete),
                                             color: Colors.red,
@@ -963,19 +1010,30 @@ class _AdminPageState extends State<AdminPage> {
                         content: Column(
                           children: [
                             TextButton(
-                              child: Text(
-                                'Termos e condições de uso',
-                                style: TextStyle(
-                                  color: ColorsApp.secondaryColor,
+                              onPressed: () => launchUrl(
+                                Uri.parse(
+                                  'https://www.mercadopago.com.br/conta-negocio',
                                 ),
                               ),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) =>
-                                      ModalMod2(content: Text('')),
-                                );
-                              },
+                              style: ButtonStyle(
+                                backgroundColor: MaterialStateProperty.all(
+                                  ColorsApp.secondaryColor,
+                                ),
+                                foregroundColor: MaterialStateProperty.all(
+                                  ColorsApp.primaryColor,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('Abrir conta no Mercado Pago '),
+                                  Image.asset(
+                                    'assets/icons/mercadopago.png',
+                                    height: 24,
+                                  ),
+                                  Icon(Icons.link),
+                                ],
+                              ),
                             ),
                             CheckboxListTile(
                               activeColor: ColorsApp.secondaryColor,

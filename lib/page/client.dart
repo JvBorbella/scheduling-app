@@ -92,7 +92,7 @@ class _ClientListState extends State<ClientList> {
                       child: CardList(
                         title: customer['name'],
                         text:
-                            'Tel.: ${customer['phone']}\nE-mail: ${customer['email']}\nCPF/CNPJ: ${customer['cpf'] ?? customer['cnpj']} ',
+                            'Tel.: ${customer['phone']}\nE-mail: ${customer['email']}\nCPF/CNPJ: ${customer['cpf_cnpj'] ?? customer['cnpj']} ',
                         textInfo: 'Cód ${customer['code']}',
                         iconButton: IconButton(
                           onPressed: () => dialogEdit(customer),
@@ -132,16 +132,16 @@ class _ClientListState extends State<ClientList> {
         context,
         customer['persons_id'],
         nameController..text = customer['name'] ?? '',
-        cpfController..text = customer['cpf'] ?? '',
+        cpfController..text = customer['cpf_cnpj'] ?? '',
         emailController..text = customer['email'] ?? '',
         phoneController..text = customer['phone'] ?? '',
-        cepController..text = customer['zip_code'] ?? '',
-        streetController..text = customer['street'] ?? '',
-        neighborhoodController..text = customer['neighborhood'] ?? '',
-        numberController..text = customer['number'] ?? '',
-        complementController..text = customer['complement'] ?? '',
-        cityController..text = customer['city'] ?? '',
-        stateController..text = customer['state'] ?? '',
+        cepController..text = customer['address_zip_code'] ?? '',
+        streetController..text = customer['address_street'] ?? '',
+        neighborhoodController..text = customer['address_neighborhood'] ?? '',
+        numberController..text = customer['address_number'] ?? '',
+        complementController..text = customer['address_complement'] ?? '',
+        cityController..text = customer['address_district'] ?? '',
+        stateController..text = customer['address_state'] ?? '',
       ),
     );
   }

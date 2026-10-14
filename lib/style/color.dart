@@ -19,8 +19,14 @@ class ColorsApp {
             prefs.setString('secondary_color', '');
             prefs.setString('logo_url', '');
           } else {
-            prefs.setString('primary_color', data['results'][0]['primary_color'] ?? '');
-            prefs.setString('secondary_color', data['results'][0]['secondary_color'] ?? '');
+            prefs.setString(
+              'primary_color',
+              data['results'][0]['primary_color'] ?? '',
+            );
+            prefs.setString(
+              'secondary_color',
+              data['results'][0]['secondary_color'] ?? '',
+            );
             prefs.setString('logo_url', data['results'][0]['logo_url'] ?? '');
           }
         }

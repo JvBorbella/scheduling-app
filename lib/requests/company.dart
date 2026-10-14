@@ -8,7 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class CompanyRequest {
   Future<http.Response> getCompany() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('refresh_token');
+    final token = prefs.getString('access_token') ?? prefs.getString('refresh_token');
     await dotenv.load(fileName: ".env");
     final baseUrl = dotenv.env['BASE_URL']!;
     final uri = Uri.parse(baseUrl + Endpoints.list);
@@ -19,7 +19,7 @@ class CompanyRequest {
     };
     final body = {
       "q":
-          "SELECT * FROM companies c WHERE c.tenant_id = '${prefs.getString('empresa_id')}'",
+          "SELECT * FROM companies c INNER JOIN persons p ON p.persons_id = c.person_id WHERE c.tenant_id = '${prefs.getString('empresa_id')}'",
     };
     final response = await http.post(
       uri,

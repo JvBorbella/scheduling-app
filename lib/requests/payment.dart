@@ -244,26 +244,26 @@ class PaymentService {
       url = '$baseUrl/api/payments/v1/link';
     }
 
-    //Detecta se estamos em modo sandbox e sanitiza o e-mail do cliente caso necessário
-    var gateway =
-        activeGateway ??
-        {'environment': 'sandbox', 'public_key': 'TEST-PUBLIC-KEY-MOCK'};
-    final isSandbox = gateway['environment'] == 'sandbox';
+    // //Detecta se estamos em modo sandbox e sanitiza o e-mail do cliente caso necessário
+    // var gateway =
+    //     activeGateway ??
+    //     {'environment': 'sandbox', 'public_key': 'TEST-PUBLIC-KEY-MOCK'};
+    // final isSandbox = gateway['environment'] == 'sandbox';
 
-    if (isSandbox && payload.customer.email.isNotEmpty) {
-      final email = payload.customer.email;
-      if (!email.endsWith('@testuser.com')) {
-        final parts = email.split('@');
-        final localPart = parts[0].replaceAll(
-          RegExp(r'[^a-zA-Z0-9]'),
-          '',
-        ); // Remove caracteres especiais
-        payload.customer.email = '$localPart@testuser.com';
-        print(
-          '🔧 [PaymentService] Sandbox mode detected. Automatically rewritten customer email to: ${payload.customer.email}',
-        );
-      }
-    }
+    // if (isSandbox && payload.customer.email.isNotEmpty) {
+    //   final email = payload.customer.email;
+    //   if (!email.endsWith('@testuser.com')) {
+    //     final parts = email.split('@');
+    //     final localPart = parts[0].replaceAll(
+    //       RegExp(r'[^a-zA-Z0-9]'),
+    //       '',
+    //     ); // Remove caracteres especiais
+    //     payload.customer.email = '$localPart@testuser.com';
+    //     print(
+    //       '🔧 [PaymentService] Sandbox mode detected. Automatically rewritten customer email to: ${payload.customer.email}',
+    //     );
+    //   }
+    // }
 
     try {
       final response = await http

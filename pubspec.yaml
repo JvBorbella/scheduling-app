@@ -35,6 +35,12 @@ dependencies:
   file_saver: ^0.4.0
   package_info_plus: ^10.2.1
   url_launcher: ^6.3.2
+  tradutor: ^0.10.0
+  multiple_search_selection: ^2.7.3
+  firebase_messaging: ^16.7.0
+  flutter_local_notifications: ^22.3.1
+  firebase_core: ^4.15.0
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:
@@ -48,6 +54,7 @@ flutter:
     - assets/icons/WhatsApp.png
     - assets/icons/pdf.png
     - assets/icons/excel.png
+    - assets/icons/mercadopago.png
     - .env
   # list giving the asset and other descriptors for the font. For
   # example:
